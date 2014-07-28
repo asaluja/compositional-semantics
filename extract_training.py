@@ -52,11 +52,8 @@ def main():
                 training_tuples.add((one_phrase, many_phrase))
     tagger = POSTagger(POS_model, POS_tagger)
     for element in training_tuples:
-        #print "Multi-word expression is %s"%element[1]
         pos_tags = [word_pos[1] for word_pos in tagger.tag(element[1].split())] #extracts POS tags for multi-word phrase
-        #print pos_tags
         contains_noun = "NN" in pos_tags or "NNS" in pos_tags or "NNP" in pos_tags or "NNPS" in pos_tags
-        #print "Contains noun is %d"%contains_noun
         if contains_noun:
             valid = False
             if selector == "adj":
@@ -66,11 +63,13 @@ def main():
             elif selector == "det":
                 valid = "DT" in pos_tags
             elif selector == "noun":
+                valid = True #start off with valid being true
                 for pos_tag in pos_tags:
-                    valid = valid & pos_tag == "NN" or pos_tag == "NNS" or pos_tag == "NNP" or pos_tag == "NNPS"
+                    valid = valid & (pos_tag == "NN" or pos_tag == "NNS" or pos_tag == "NNP" or pos_tag == "NNPS")
+            else:
+                sys.stderr.write("Could not regonize selector\n")
             if valid:
-                #print "valid!"
-                print "%s ||| %s"%(element[0], element[1])    
+                print "%s ||| %s"%(element[0], element[1])
 
 if __name__ == "__main__":
     main()

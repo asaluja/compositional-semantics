@@ -37,51 +37,70 @@ def readHumanSimilarities(selector):
             humanDict[elements[0]] = sims
     return humanDict
 
-def computeComposedRep(phrase, wordVecs, parameter, intercept):
+def computeComposedRep(phrase, wordVecs, parameter, intercept, mult):
     words = phrase.split()
     if words[0] in wordVecs and words[1] in wordVecs:
         wordVec1 = wordVecs[words[0]]
         wordVec2 = wordVecs[words[1]]
-        result = np.tensordot(wordVec2, parameter, axes=[0,2])
-        result = result.dot(wordVec1)
-        result += intercept
+        result = None
+        if mult:
+            result = np.multiply(wordVec1, wordVec2)
+        else:                              
+            result = np.tensordot(wordVec2, parameter, axes=[0,2])
+            result = result.dot(wordVec1)
+            result += intercept
         return result
     else:
         sys.stderr.write("Error! Word %s or %s is not in wordVecDictionary!\n"%(words[0], words[1]))
 
-def computeCorrelation(humanSims, wordVecs, parameter, intercept):
+def computeCorrelation(humanSims, wordVecs, parameter, intercept, mult, extreme):
     composedReps = {}
     rhoVec = []
+    numRatings = []
     for subject in humanSims:
         human_ratings = []
         model_ratings = []
         for phrase1, phrase2, sim in humanSims[subject]:
-            phraseRep1 = composedReps[phrase1] if phrase1 in composedReps else computeComposedRep(phrase1, wordVecs, parameter, intercept)
+            phraseRep1 = composedReps[phrase1] if phrase1 in composedReps else computeComposedRep(phrase1, wordVecs, parameter, intercept, mult)
             composedReps[phrase1] = phraseRep1
-            phraseRep2 = composedReps[phrase2] if phrase2 in composedReps else computeComposedRep(phrase2, wordVecs, parameter, intercept)
+            phraseRep2 = composedReps[phrase2] if phrase2 in composedReps else computeComposedRep(phrase2, wordVecs, parameter, intercept, mult)
             composedReps[phrase2] = phraseRep2
             phraseSim = np.divide(np.dot(phraseRep1, phraseRep2), np.linalg.norm(phraseRep1) * np.linalg.norm(phraseRep2))
-            human_ratings.append(sim)
-            model_ratings.append(phraseSim)
+            if extreme:
+                if sim < 3 or sim > 5:
+                    human_ratings.append(sim)
+                    model_ratings.append(phraseSim)
+            else:
+                human_ratings.append(sim)
+                model_ratings.append(phraseSim)
         rho = stats.spearmanr(human_ratings, model_ratings)
-        print "Subject %s; Rho: %.3f; P-val: %.3f"%(subject, rho[0], rho[1])
         rhoVec.append(rho[0])
+        numRatings.append(len(human_ratings))
     print "Average rho across %d subjects: %.3f"%(len(humanSims), sum(rhoVec) / len(humanSims))
+    print "Average number of ratings across %d subjects: %.3f"%(len(humanSims), float(sum(numRatings)) / len(numRatings))
             
 
 def main():
-    (opts, args) = getopt.getopt(sys.argv[1:], 'jn')
+    (opts, args) = getopt.getopt(sys.argv[1:], 'ejmnN')
     normalize = False
     selector = ""
+    mult = False
+    extreme = False
     for opt in opts:
         if opt[0] == '-n':
             normalize = True        
         elif opt[0] == '-j':
             selector = "adjectivenouns"
+        elif opt[0] == '-m':
+            mult = True
+        elif opt[0] == '-e':
+            extreme = True
+        elif opt[0] == '-N':
+            selector = "compoundnouns"
     wordVecs = readVecFile(args[0], normalize)
     parameter, intercept = cPickle.load(open(args[1], 'rb'))
     humanSims = readHumanSimilarities(selector)
-    computeCorrelation(humanSims, wordVecs, parameter, intercept)
+    computeCorrelation(humanSims, wordVecs, parameter, intercept, mult, extreme)
     
 
 if __name__ == "__main__":
