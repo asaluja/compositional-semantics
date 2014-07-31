@@ -31,7 +31,7 @@ def computeComposedRep(words, wordVecs, parameter, intercept):
     return result
 
 #simple multiplicative/additive model computation
-def computeSimpleRep(additive, words, wordVecs):
+def computeSimpleRep(additive, words, wordVecs):    
     wordVec1 = wordVecs[words[0]]
     wordVec2 = wordVecs[words[1]]
     result = None
@@ -54,7 +54,7 @@ def computePairwiseSimilarities(phraseVecs, topN):
         phraseSims.sort(key = lambda x:x[1], reverse=True)
         topNPhraseSims = phraseSims[:topN]
         for phraseSim in topNPhraseSims:
-            print "%s: %.3f "%(phraseSim[0], phraseSim[1]),
+            print "%s: %.3f\t"%(phraseSim[0], phraseSim[1]),
         print
 
 def main():
@@ -91,8 +91,10 @@ def main():
                 rep = None
                 if multiplicative:
                     rep = computeSimpleRep(False, words, wordVecs)
+                    phraseVecs[phrase] = rep
                 elif additive:
-                    rep = computeSimpleRep(True, words, wordVecs):
+                    rep = computeSimpleRep(True, words, wordVecs)
+                    phraseVecs[phrase] = rep
                 else:
                     contains_noun = "NN" in pos_tags or "NNS" in pos_tags or "NNP" in pos_tags or "NNPS" in pos_tags
                     if contains_noun:
@@ -111,14 +113,15 @@ def main():
                                 rep = computeComposedRep(words, wordVecs, nounNounParam[0], nounNounParam[1])
                                 numValidPOS += 1
                                 phraseVecs[phrase] = rep
-    print "Out of %d examples, %d are in the vocab, and %d of those have the correct POS sequence (if 0, doesn't matter)"%(numExamples, numInVocab, numValidPOS)
+    sys.stderr.write("Out of %d examples, %d are in the vocab, and %d of those have the correct POS sequence (if '-a' or '-m' flag on, then POS # doesn't matter)\n"%(numExamples, numInVocab, numValidPOS))
     if topN > 0: #i.e., pairwise similarities need to be computed
         computePairwiseSimilarities(phraseVecs, topN)
-    for phrase in phraseVecs:
-        print "%s"%(phrase),
-        for val in phraseVecs[phrase]:
-            print " %.6f"%phraseVecs[phrase][val]
-        print 
+    else:
+        for phrase in phraseVecs:
+            print "%s"%(phrase),
+            for val in np.nditer(phraseVecs[phrase]):
+                print " %.6f"%val,
+            print 
 
 if __name__ == "__main__":
     main()
