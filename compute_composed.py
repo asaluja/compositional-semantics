@@ -105,6 +105,11 @@ def main():
                             rep = computeComposedRep(words, wordVecs, adjNounParam[0], adjNounParam[1])
                             numValidPOS += 1
                             phraseVecs[phrase] = rep
+                            if topN < 0:
+                                print "%s"%(phrase),
+                                for val in np.nditer(rep):
+                                    print " %.6f"%val,
+                                print
                         else:
                             valid = True
                             for pos_tag in pos_tags:
@@ -113,15 +118,21 @@ def main():
                                 rep = computeComposedRep(words, wordVecs, nounNounParam[0], nounNounParam[1])
                                 numValidPOS += 1
                                 phraseVecs[phrase] = rep
+                                if topN < 0:
+                                    print "%s"%(phrase),
+                                    for val in np.nditer(rep):
+                                        print " %.6f"%val,
+                                    print
+
     sys.stderr.write("Out of %d examples, %d are in the vocab, and %d of those have the correct POS sequence (if '-a' or '-m' flag on, then POS # doesn't matter)\n"%(numExamples, numInVocab, numValidPOS))
     if topN > 0: #i.e., pairwise similarities need to be computed
         computePairwiseSimilarities(phraseVecs, topN)
-    else:
-        for phrase in phraseVecs:
-            print "%s"%(phrase),
-            for val in np.nditer(phraseVecs[phrase]):
-                print " %.6f"%val,
-            print 
+    #else:
+    #    for phrase in phraseVecs:
+    #        print "%s"%(phrase),
+    #        for val in np.nditer(phraseVecs[phrase]):
+    #            print " %.6f"%val,
+    #        print 
 
 if __name__ == "__main__":
     main()
