@@ -26,7 +26,8 @@ def computeComposedRep(words, wordVecs, parameter, intercept):
     wordVec1 = wordVecs[words[0]]
     wordVec2 = wordVecs[words[1]]
     result = np.tensordot(wordVec2, parameter, axes=[0,2])
-    result = result.dot(wordVec1)
+    #result = result.dot(wordVec1)
+    result = np.dot(result, wordVec1)
     result += intercept
     return result
 
@@ -56,6 +57,12 @@ def computePairwiseSimilarities(phraseVecs, topN):
         for phraseSim in topNPhraseSims:
             print "%s: %.3f\t"%(phraseSim[0], phraseSim[1]),
         print
+
+def printVector(phrase, rep):
+    print "%s"%phrase,
+    for idx in xrange(0, len(rep)):
+        print " %.6f"%(rep[idx]),
+    print
 
 def main():
     (opts, args) = getopt.getopt(sys.argv[1:], 'amp:')
@@ -92,9 +99,13 @@ def main():
                 if multiplicative:
                     rep = computeSimpleRep(False, words, wordVecs)
                     phraseVecs[phrase] = rep
+                    if topN < 0:
+                        printVector(phrase, rep)
                 elif additive:
                     rep = computeSimpleRep(True, words, wordVecs)
                     phraseVecs[phrase] = rep
+                    if topN < 0:
+                        printVector(phrase, rep)
                 else:
                     contains_noun = "NN" in pos_tags or "NNS" in pos_tags or "NNP" in pos_tags or "NNPS" in pos_tags
                     if contains_noun:
@@ -106,10 +117,7 @@ def main():
                             numValidPOS += 1
                             phraseVecs[phrase] = rep
                             if topN < 0:
-                                print "%s"%(phrase),
-                                for val in np.nditer(rep):
-                                    print " %.6f"%val,
-                                print
+                                printVector(phrase, rep)
                         else:
                             valid = True
                             for pos_tag in pos_tags:
@@ -119,20 +127,10 @@ def main():
                                 numValidPOS += 1
                                 phraseVecs[phrase] = rep
                                 if topN < 0:
-                                    print "%s"%(phrase),
-                                    for val in np.nditer(rep):
-                                        print " %.6f"%val,
-                                    print
-
+                                    printVector(phrase, rep)
     sys.stderr.write("Out of %d examples, %d are in the vocab, and %d of those have the correct POS sequence (if '-a' or '-m' flag on, then POS # doesn't matter)\n"%(numExamples, numInVocab, numValidPOS))
     if topN > 0: #i.e., pairwise similarities need to be computed
         computePairwiseSimilarities(phraseVecs, topN)
-    #else:
-    #    for phrase in phraseVecs:
-    #        print "%s"%(phrase),
-    #        for val in np.nditer(phraseVecs[phrase]):
-    #            print " %.6f"%val,
-    #        print 
 
 if __name__ == "__main__":
     main()
