@@ -6,7 +6,7 @@ Date: August 21, 2014
 Description: 
 '''
 
-import sys, commands, string, getopt, math, gzip
+import sys, commands, string, getopt, math, gzip, re
 import numpy as np
 import extract_training
 from compute_composed import *
@@ -56,20 +56,38 @@ def scoreLogReg(context, phrase, phraseRep, model, noise):
         if word in model.wordVecs: 
             wordRep = model.wordVecs[word]
             score = sigmoid(np.dot(wordRep, phraseRep))
-            print "phrase: %s; context: %s; score: %.3f"%(phrase, word, score)
+            #print "phrase: %s; context: %s; score: %.3f"%(phrase, word, score)
             noiseWords = noise.sampleWords()
             count = 0
             for noiseWord in noiseWords:
                 if noiseWord in model.wordVecs:
                     noiseWordRep = model.wordVecs[noiseWord]
                     noiseScore = sigmoid(np.dot(noiseWordRep, phraseRep))
-                    print "noise word: %s; score: %.3f"%(noiseWord, noiseScore)
+                    #print "noise word: %s; score: %.3f"%(noiseWord, noiseScore)
                     if score > noiseScore:
                         count += 1
             if count > len(noiseWords) / 2:
                 victories.append(True)
-    if False not in victories:
-        print "Success!"
+            else:
+                victories.append(False)
+    if sum(victories) >= len(victories) / 2:
+        return True
+    else:
+        return False
+
+def scoreSkipGram(context, phrase, phraseRep, model, noise):
+    aggregate_score = 0.0
+    numContext = 0
+    for word in context:
+        if word in model.contextVecs:
+            numContext += 1
+            wordRep = model.contextVecs[word]
+            aggregate_score += np.dot(wordRep, phraseRep)
+            #aggregate_score += math.exp(np.dot(wordRep, phraseRep)) #unnormalized
+    avg_score = aggregate_score / numContext
+    print "Phrase '%s':%.3f"%(phrase, avg_score)
+    #print "Context is: "
+    #print context
 
 def scoreCosineSim(phrase, phraseRep, model):
     words = phrase.split()
@@ -89,29 +107,32 @@ def processRules(grammar_fh):
         src_rule = rule.strip().split(' ||| ')[1]
         if not src_rule in seen_rules:
             seen_rules.append(src_rule)
-            if checkArity(src_rule) == 0:
+            if checkArity(src_rule) == 0 and len(src_rule.split()) == 2: #second condition is temporary
                 preterm_rules.append(src_rule)
     return preterm_rules
 
-def extractContext(words, start_idx, end_idx, model, noise):
+def extractContext(words, start_idx, end_idx, context_size, model, noise):
     start = start_idx-1
-    left_context = ""
+    left_context = []
     while start > -1:
-        left_context = words[start]
-        if not noise.checkStopWord(left_context) and left_context in model.wordVecs:
+        left_word = words[start]
+        if left_word in model.contextVecs:
+        #if not noise.checkStopWord(left_word) and left_word in model.contextVecs:
+            left_context.append(left_word)
+        if len(left_context) == context_size:
             break
         start -= 1
-    if start == -1: #can try replacing this with 'else'
-        left_context = "<s>"
     end = end_idx
+    right_context = []
     while end < len(words):
-        right_context = words[end]
-        if not noise.checkStopWord(right_context) and right_context in model.wordVecs:
+        right_word = words[end]
+        if right_word in model.contextVecs:
+        #if not noise.checkStopWord(right_word) and right_word in model.contextVecs:
+            right_context.append(right_word)
+        if len(right_context) == context_size:
             break
         end += 1
-    if end == len(words): #can try replacing this with 'else'
-        right_context = "</s>"
-    return (left_context, right_context)
+    return left_context + right_context
 
 def containsSequence(subseq, seq):
     for i in xrange(len(seq)-len(subseq)+1):
@@ -120,22 +141,26 @@ def containsSequence(subseq, seq):
                 break
         else:
             return i, i+len(subseq)
-    return False
+    return -1, -1
 
 def main():    
-    (opts, args) = getopt.getopt(sys.argv[1:], 'cs:')
+    (opts, args) = getopt.getopt(sys.argv[1:], 'cC:s:')
     concat = False
     negSamples = 10
+    numContext = 1
     for opt in opts:
         if opt[0] == '-c':
             concat = True
         elif opt[0] == '-s':
             negSamples = int(opt[1])
-    model = CompoModel(args[1], concat, True)
-    model.readVecFile(args[0])
-    noise = Noise(args[2], negSamples)
-    noise.filterStopWords(args[3], 20)
-    grammar_loc = args[4]
+        elif opt[0] == '-C':
+            numContext = int(opt[1])
+    model = CompoModel(args[2], concat, True)
+    model.readVecFile(args[0], "word")
+    model.readVecFile(args[1], "context")
+    noise = Noise(args[3], negSamples)
+    noise.filterStopWords(args[4], 20)
+    grammar_loc = args[5]
     line_counter = 0
     for line in sys.stdin: #each line is a POS-tagged sentence (sequence of word#POS pairs)
         words, pos_tags = zip(*[word_pos.split('#') for word_pos in line.strip().split()])
@@ -144,19 +169,14 @@ def main():
         for phrase in phrases:
             phrase_words = phrase.split()
             start, end = containsSequence(phrase_words, words)
-            phrase_pos = [extract_training.collapsePOS(pos) for pos in pos_tags[start:end+1]]
-            #then need to figure out best way to combine them
-            print "Phrase %s; POS %s"%(phrase, ' '.join(phrase_pos))
-            '''
-            midPoint = 7
-            bigram = ' '.join(words[midPoint:midPoint+2])
-            bigram_pos = ' '.join(pos_tags[midPoint:midPoint+2])
-            print "Bigram %s; POS %s"%(bigram, bigram_pos)
-            '''
-            phraseRep = model.computeComposedRep(bigram, bigram_pos)
-            context = extractContext(words, midPoint, midPoint+2, model, noise)
-            print context
-            scoreLogReg(context, bigram, phraseRep, model, noise) 
+            if start > -1 and end > -1:
+                phrase_pos = [extract_training.collapsePOS(pos) for pos in pos_tags[start:end]]
+                #currently doing bigrams only - need to figure out a way to combine representaitons for longer phrases
+                phraseRep = model.computeComposedRep(phrase, ' '.join(phrase_pos))
+                context = extractContext(words, start, end, numContext, model, noise)
+                #comp = scoreLogReg(context, phrase, phraseRep, model, noise) 
+                scoreSkipGram(context, phrase, phraseRep, model, noise)
+                #print "Phrase '%s'; POS '%s'; %r"%(phrase, ' '.join(phrase_pos), comp)
      
 if __name__ == "__main__":
     main()
