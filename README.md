@@ -7,7 +7,6 @@
 ## End-to-end Pipeline Instructions
 
 Inputs: word vectors, context vectors, PPDB
-Note: 
 
 1. In order to make things faster, it is better to run the TrainingExtractor module *a priori* on PPDB: 
 
@@ -15,7 +14,7 @@ Note:
 python extract_training.py -A X ppdb_loc > sorted_ppdb_examples
 ```
 
-The `-A X` flag indicates we should output all POS pairs: specific pairs for the top X, and the rest in a generic 'X X' pair type. Other options available are:
+  The `-A X` flag indicates we should output all POS pairs: specific pairs for the top X, and the rest in a generic 'X X' pair type. Other options available are:
   - `-a`: adjective-noun
   - `-n`: noun-noun
   - `-d`: determiner-noun
@@ -27,7 +26,7 @@ The `-A X` flag indicates we should output all POS pairs: specific pairs for the
 python learning.py wordVecs sorted_ppdb_examples parameters
 ```
 
-Flags:
+  Flags:
   - `-n`: normalize word vectors to be unit norm (recommended)
   - `-j X`: sets number of jobs/cores. Default is 4
   - `-f`: filter duplicates; this removes training examples where a word is repeated ('trade union' --> 'union')
@@ -42,7 +41,7 @@ Flags:
 python evaluation.py wordVecs parameters < mitchell_lapata_scores
 ```
 
-Flags:
+  Flags:
   - `-n`: normalize word vectors to be unit norm (recommended)
   - `-j`: adjective-noun evaluation
   - `-N`: noun-noun evaluation
@@ -54,13 +53,19 @@ Flags:
 4. If you want to get non-compositionality scores for phrases using these parameters:
 
 ```
-python non_comp_detect.py wordVecs contextVecs parameters unigram_dev_counts unigram_training_counts per_sentence_grammar_location
+python non_comp_detect.py wordVecs contextVecs parameters unigram_dev_counts unigram_training_counts per_sentence_grammar_location < dev_corpus_with_pos_tags
 ```
 
-Flags:
+  Flags:
   - `-c`: concatenative model. If the parameters have been learned using a concatenative model, then this flag is required. 
   - `-C X`: number of context words on either side to consider in the window (total window size: X * 2); default is 1
   - `-s X`: number of negative samples (in the process of being removed)
+
+  1. Note that in order to do non-compositionality detection, an evaluation set must be provided with the POS tags (separated by '#').  In order to do this, run the following command:
+
+  ```
+  java -mx5000m -cp $POSTAGGER/stanford-postagger.jar edu.stanford.nlp.tagger.maxent.MaxentTagger -model $POSTAGGER/models/english-bidirectional-distsim.tagger -textFile eval.lc-tok -outputFormat slashTags -tagSeparator \# -tokenize false > eval.lc-tok.pos
+  ```
 
 ## Things to add
 

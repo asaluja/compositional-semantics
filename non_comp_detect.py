@@ -82,12 +82,9 @@ def scoreSkipGram(context, phrase, phraseRep, model, noise):
         if word in model.contextVecs:
             numContext += 1
             wordRep = model.contextVecs[word]
-            aggregate_score += np.dot(wordRep, phraseRep)
-            #aggregate_score += math.exp(np.dot(wordRep, phraseRep)) #unnormalized
+            aggregate_score += np.dot(wordRep, phraseRep) #log prob
     avg_score = aggregate_score / numContext
-    print "Phrase '%s':%.3f"%(phrase, avg_score)
-    #print "Context is: "
-    #print context
+    return avg_score
 
 def scoreCosineSim(phrase, phraseRep, model):
     words = phrase.split()
@@ -107,7 +104,7 @@ def processRules(grammar_fh):
         src_rule = rule.strip().split(' ||| ')[1]
         if not src_rule in seen_rules:
             seen_rules.append(src_rule)
-            if checkArity(src_rule) == 0 and len(src_rule.split()) == 2: #second condition is temporary
+            if checkArity(src_rule) == 0 and len(src_rule.split()) == 2: #second condition is temporary; currently doing bigrams only 
                 preterm_rules.append(src_rule)
     return preterm_rules
 
@@ -166,17 +163,21 @@ def main():
         words, pos_tags = zip(*[word_pos.split('#') for word_pos in line.strip().split()])
         phrases = processRules(gzip.open(grammar_loc + "grammar.%d.gz"%line_counter, 'rb'))
         line_counter += 1
-        for phrase in phrases:
-            phrase_words = phrase.split()
-            start, end = containsSequence(phrase_words, words)
-            if start > -1 and end > -1:
-                phrase_pos = [extract_training.collapsePOS(pos) for pos in pos_tags[start:end]]
-                #currently doing bigrams only - need to figure out a way to combine representaitons for longer phrases
-                phraseRep = model.computeComposedRep(phrase, ' '.join(phrase_pos))
-                context = extractContext(words, start, end, numContext, model, noise)
-                #comp = scoreLogReg(context, phrase, phraseRep, model, noise) 
-                scoreSkipGram(context, phrase, phraseRep, model, noise)
-                #print "Phrase '%s'; POS '%s'; %r"%(phrase, ' '.join(phrase_pos), comp)
-     
+        for phrase in phrases:            
+            if model.checkVocab(phrase): 
+                phrase_words = phrase.split()
+                start, end = containsSequence(phrase_words, words)
+                if start > -1 and end > -1:
+                    phrase_pos = [extract_training.collapsePOS(pos) for pos in pos_tags[start:end]]
+                    phraseRep = model.computeComposedRep(phrase, ' '.join(phrase_pos))
+                    print '_'.join(phrase_words),
+                    for idx in range(0, len(phraseRep)):
+                        print " %.6f"%phraseRep[idx],
+                    print
+                    #context = extractContext(words, start, end, numContext, model, noise)
+                    #comp = scoreLogReg(context, phrase, phraseRep, model, noise) 
+                    #score = scoreSkipGram(context, phrase, phraseRep, model, noise)
+                    #print "Phrase '%s'; POS '%s'; %r"%(phrase, ' '.join(phrase_pos), score)
+
 if __name__ == "__main__":
     main()
