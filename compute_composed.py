@@ -32,9 +32,12 @@ class CompoModel:
         fh = open(filename, 'r')
         vecs = {}
         for line in fh:
-            word = line.strip().split()[0]
-            rep = np.array([float(i) for i in line.strip().split()[1:]])
-            vecs[word] = np.divide(rep, np.linalg.norm(rep)) if self.normalize else rep
+            if len(line.strip().split()) > 2:
+                word = line.strip().split()[0]
+                rep = np.array([float(i) for i in line.strip().split()[1:]])
+                vecs[word] = np.divide(rep, np.linalg.norm(rep)) if self.normalize else rep
+                if self.normalize and np.linalg.norm(rep) == 0:
+                    vecs[word] = np.zeros(len(rep))
         if vecType == "word":
             self.wordVecs = vecs
         else:
@@ -99,7 +102,7 @@ class CompoModel:
                 print "%s: %.3f\t"%(phraseSim[0], phraseSim[1]),
             print
 
-    def printVector(phrase, rep):
+    def printVector(self, phrase, rep):
         print "%s"%phrase,
         for idx in xrange(0, len(rep)):
             print " %.6f"%(rep[idx]),

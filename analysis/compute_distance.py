@@ -34,7 +34,7 @@ def main():
         phraseToPrint = ' '.join(phrase.split('_'))
         if phrase in other_vecs:
             distance = np.linalg.norm(ref_vecs[phrase] - other_vecs[phrase])
-            print "%s:%.6f"%(phraseToPrint, distance)
+            print "%s\t%.6f"%(phraseToPrint, distance)
         else:
             sys.stderr.write("%s not in training\n"%phraseToPrint)
 

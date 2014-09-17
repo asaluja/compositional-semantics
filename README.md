@@ -53,13 +53,21 @@ python evaluation.py wordVecs parameters < mitchell_lapata_scores
 4. If you want to get non-compositionality scores for phrases using these parameters:
 
 ```
-python non_comp_detect.py wordVecs contextVecs parameters unigram_dev_counts unigram_training_counts per_sentence_grammar_location < dev_corpus_with_pos_tags
+python non_comp_detect.py wordVecs contextVecs parameters unigram_counts per_sentence_grammar_location composed_learned_phrase_distances < dev_corpus_with_pos_tags
 ```
 
   Flags:
   - `-c`: concatenative model. If the parameters have been learned using a concatenative model, then this flag is required. 
-  - `-C X`: number of context words on either side to consider in the window (total window size: X * 2); default is 1
-  - `-s X`: number of negative samples (in the process of being removed)
+  - `-a`: averaging; divide the log probability by the number of words to normalize for context length (beginning/end sentence effects)
+  - `-l X`: context length; the number of words to look at on one side of the phrase (so the window is double this)
+  - `-s X`: number of stop words to filter in the context. 0 means do not filter stop words. 
+  - `-n X`: apply normalization (and use X cores in the process).  Not using this flag will leave scores as unnormalized. 
+  - `-u`: apply unigram correction; this is a heuristic that divides the score, which is the probability of the context given the phrasal representation, by the product of the unigram probabilities of the context. Only works if the `-n` flag is enabled.   
+  - `-P`: output perplexity instead of log probability; this also takes into account the length of the context
+  - `-C`: score non-compositionality using a simple cosine similarity heuristic (ignoring context), where we average the cosine similarity of the phrasal representation with each of the word representations. 
+  - `-v`: print phrasal representation vectors only; useful output if you want to compute the distances between these representations and directly learned word2vec phrasal representations. 
+  - `-f`: print and score phrases with full i.e., 2 times context length words in the context. 
+  - `-p`: print correlation and distance information by POS pair only
 
   1. Note that in order to do non-compositionality detection, an evaluation set must be provided with the POS tags (separated by '#').  In order to do this, run the following command:
 
