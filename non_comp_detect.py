@@ -184,7 +184,7 @@ and scores each of those phrases in its appropriate context by first computing t
 representation and then calling the scorer. 
 The function can also be used to just print the relevant vectors. 
 '''
-def scorePhraseVectors(model, uniModel, numContext, grammar_loc, printOnly, cosine): 
+def scorePhraseVectors(model, uniModel, numContext, grammar_loc, printOnly, cosine, headed): 
     line_counter = 0
     phrase_tuples = []
     for line in sys.stdin: #each line is a POS-tagged sentence (sequence of word#POS pairs)
@@ -203,6 +203,12 @@ def scorePhraseVectors(model, uniModel, numContext, grammar_loc, printOnly, cosi
                     else:
                         context = extractContext(words, start, end, numContext, model, uniModel)
                         score = scoreCosineSim(phrase, phraseRep, model) if cosine else scoreSkipGram(context, phraseRep, model) 
+                        if headed:
+                            headedRep = model.computeHeadedRep(phrase, ' '.join(phrase_pos))
+                            headedScore = scoreCosineSim(phrase, headedRep, model) if cosine else scoreSkipGram(context, headedRep, model)
+                            score = headedScore
+                        #if headedScore > score:
+                        #        score = headedScore
                         phrase_tuples.append((phrase, ' '.join(phrase_pos), context, phraseRep, score))
     return phrase_tuples
 
@@ -244,7 +250,7 @@ def printPOSInfo(pos_scores_dist):
             print "%s\t%d\t%.3f\t%.3f"%(pos_pair, len(pos_scores), pos_coeff, sum(pos_distances) / len(pos_distances))
 
 def main():    
-    (opts, args) = getopt.getopt(sys.argv[1:], 'acCfl:n:pPs:uv')
+    (opts, args) = getopt.getopt(sys.argv[1:], 'acCfhl:n:pPs:uv')
     concat = False
     numContext = 2
     numStop = 20
@@ -253,6 +259,7 @@ def main():
     numJobs = -1
     perplexity = False #-P
     cosine = False
+    headed = False
     printVecOnly = False #-v
     printFullOnly = False #-f
     printPOSOnly = False #-p
@@ -273,6 +280,8 @@ def main():
             perplexity = True
         elif opt[0] == '-C':
             cosine = True
+        elif opt[0] == '-h':
+            headed = True
         elif opt[0] == '-p':
             printPOSOnly = True
         elif opt[0] == '-v':
@@ -296,7 +305,7 @@ def main():
         sys.stderr.write("Error! Cannot do both averaging and perplexity score at the same time\n")
         sys.exit()
         
-    phrase_tuples = scorePhraseVectors(model, uniModel, numContext, grammar_loc, printVecOnly, cosine)
+    phrase_tuples = scorePhraseVectors(model, uniModel, numContext, grammar_loc, printVecOnly, cosine, headed)
     if not printVecOnly:
         revised_tuples = computeNormalizerParallel(phrase_tuples, numJobs, model, uniModel, uniCorrection) if numJobs > 0 else phrase_tuples
         pos_score_dist, scores, distances = printScoresAndDistances(revised_tuples, model, numContext, averaging, perplexity, distanceDict, printFullOnly, printPOSOnly)

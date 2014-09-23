@@ -16,7 +16,9 @@ STDIN; if we are doing additive or multiplicative models, then we don't need
 to POS-tag the phrases. 
 '''
 
-import sys, commands, string, cPickle, getopt
+import sys, commands, string, cPickle, getopt, math
+import pylab as plt
+import matplotlib as mpl
 import numpy as np
 
 class CompoModel:
@@ -27,6 +29,7 @@ class CompoModel:
         self.parameters = cPickle.load(open(params_file, 'rb')) #dictionary; value is a tuple of parameters-intercept
         self.concat = concat
         self.normalize = normalize
+        self.dimensions = self.parameters["X X"][0].shape[0]
 
     def readVecFile(self, filename, vecType = "word"):
         fh = open(filename, 'r')
@@ -74,6 +77,19 @@ class CompoModel:
             self.phraseVecs[(phrase, key)] = result
             return result
 
+    def computeHeadedRep(self, phrase, pos_pair):
+        phrase_words = phrase.split()
+        pos_words = pos_pair.split()
+        if "NN" in pos_words:
+            if "JJ" in pos_words or sum([element == "NN" for element in pos_words]) == len(pos_words):
+                return self.wordVecs[phrase_words[1]]
+            elif "VV" in pos_words:
+                return self.wordVecs[phrase_words[0]]
+            else:
+                return self.computeComposedRep(phrase, pos_pair)
+        else:
+            return self.computeComposedRep(phrase, pos_pair)
+
     'For point-wise additive/multiplicative models'
     def computeSimpleRep(self, phrase, operator):
         if (phrase, operator) in self.phraseVecs:
@@ -107,6 +123,56 @@ class CompoModel:
         for idx in xrange(0, len(rep)):
             print " %.6f"%(rep[idx]),
         print
+
+    def visualizeParameters(self, outFile_root, chartsPerRow, chartsPerCol):
+        chartsPerCell = chartsPerRow * chartsPerCol
+        numCharts = self.dimensions
+        num_subplots = int(math.ceil(float(numCharts) / chartsPerCell))
+        for pos_pair in self.parameters:
+            pos_file = '_'.join(pos_pair.split())
+            outFH = mpl.backends.backend_pdf.PdfPages(outFile_root + ".%s.pdf"%pos_file)
+            parameter, intercept = self.parameters[pos_pair]
+            for sp in xrange(num_subplots):
+                chartNum = 0
+                coordinate = sp*chartsPerCell
+                f, axes_tuples = plt.subplots(chartsPerCol, chartsPerRow, sharey=True, sharex=True)
+                while chartNum < chartsPerCell:
+                    chartX = chartNum / chartsPerRow #truncates to nearest integer
+                    chartY = chartNum % chartsPerRow
+                    ax1 = axes_tuples[chartX][chartY]
+                    cmap = plt.cm.get_cmap('RdBu')
+                    maxVal = 0
+                    minVal = 0
+                    if coordinate < numCharts:                        
+                        param = parameter[coordinate, :] if self.concat else parameter[coordinate, :, :]
+                        maxVal = param[param!=0].max()
+                        minVal = param[param!=0].min()
+                        param[param==0] = np.nan
+                        if self.concat:
+                            param = np.reshape(param, (2, self.dimensions))
+                        param = -param #negate values of parameters, since we want red to indicate high values
+                        heatmap = np.ma.array(param, mask=np.isnan(param))
+                        cmap.set_bad('w', 1.)
+                        ax1.pcolor(heatmap, cmap=cmap, alpha=0.8)
+                    else:
+                        param = np.zeros((numCharts, numCharts))
+                        ax1.pcolor(param, cmap=cmap, alpha=0.8)
+                    ax1.set_title('Dim. %d; Max: %.3f; Min: %.3f'%(coordinate+1, maxVal, minVal))
+                    ax1.set_xlim([0, numCharts])
+                    if self.concat:
+                        ax1.set_ylim([0, 2])
+                        ax1.get_yaxis().set_ticks([])
+                        ax1.set_ylabel('Words')
+                        ax1.set_xlabel('Dimensions')
+                    else:
+                        ax1.set_ylim([0, numCharts])
+                        ax1.set_ylabel('Left W')
+                        ax1.set_xlabel('Right W')
+                    chartNum += 1
+                    coordinate += 1
+                plt.tight_layout()
+                outFH.savefig()
+            outFH.close()
 
 def main():
     (opts, args) = getopt.getopt(sys.argv[1:], 'acmp:')
