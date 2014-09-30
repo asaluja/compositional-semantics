@@ -53,7 +53,7 @@ python evaluation.py wordVecs parameters < mitchell_lapata_scores
 4. If you want to get non-compositionality scores for phrases using these parameters:
 
 ```
-python non_comp_detect.py wordVecs contextVecs parameters unigram_counts per_sentence_grammar_location composed_learned_phrase_distances < dev_corpus_with_pos_tags
+python non_comp_detect.py wordVecs contextVecs parameters unigram_counts per_sentence_grammar_loc_in per_sentence_grammar_loc_out < dev_corpus_with_pos_tags
 ```
 
   Flags:
@@ -68,6 +68,10 @@ python non_comp_detect.py wordVecs contextVecs parameters unigram_counts per_sen
   - `-v`: print phrasal representation vectors only; useful output if you want to compute the distances between these representations and directly learned word2vec phrasal representations. 
   - `-f`: print and score phrases with full i.e., 2 times context length words in the context. 
   - `-p`: print correlation and distance information by POS pair only
+  - `-d X`: compute correlation with distance between directly learned phrasal representation and composed representation; only works for bigrams. `X` denotes the location of the file with the distances pre-computed. 
+  - `-r`: select right-branching when computing compositional representations for phrases of length greater than 2.  The default is left-branching. 
+  - `-h`: impose heuristic headedness when computing compositional representations.  For 'JJ-NN' and 'NN-NN' the right word is the head word and only its representation is used; for 'VV-NN' the verb is the head word. 
+  - `-w X`: write per-sentence grammars out; the grammars are in the same format as the grammars being read in, except we add an extra 'Segmentation' feature based on the non-compositionality score
 
   1. Note that in order to do non-compositionality detection, an evaluation set must be provided with the POS tags (separated by '#').  In order to do this, run the following command:
 

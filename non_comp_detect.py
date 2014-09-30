@@ -56,11 +56,12 @@ cosine similarity-based scorer; does not take into account context
 '''
 def scoreCosineSim(phrase, phraseRep, model):
     words = phrase.split()
-    wordVec1 = model.wordVecs[words[0]]
-    wordVec2 = model.wordVecs[words[1]]
-    cosSim1 = np.divide(np.dot(wordVec1, phraseRep), np.linalg.norm(wordVec1) * np.linalg.norm(phraseRep))
-    cosSim2 = np.divide(np.dot(wordVec2, phraseRep), np.linalg.norm(wordVec2) * np.linalg.norm(phraseRep))
-    return 0.5*(cosSim1 + cosSim2)
+    avgCosSim = 0
+    for word in words:
+        wordVec = model.wordVecs[word]
+        cosSim = np.divide(np.dot(wordVec, phraseRep), np.linalg.norm(wordVec) * np.linalg.norm(phraseRep))
+        avgCosSim += cosSim
+    return avgCosSim / len(words)
 
 '''
 macro for function below
@@ -71,15 +72,19 @@ def checkArity(rule):
 '''
 used for extracting phrases that we want to score for a given sentence (arg: filehandle to .gz per-sentence grammar file)
 '''
-def processRules(grammar_fh):
+def processRules(grammar_fh, distanceCorr):
     seen_rules = []
     preterm_rules = []
     for rule in grammar_fh: 
         src_rule = rule.strip().split(' ||| ')[1]
         if not src_rule in seen_rules:
             seen_rules.append(src_rule)
-            if checkArity(src_rule) == 0 and len(src_rule.split()) == 2: #second condition is temporary; currently doing bigrams only 
-                preterm_rules.append(src_rule)
+            if not distanceCorr:
+                if checkArity(src_rule) == 0 and len(src_rule.split()) > 1:
+                    preterm_rules.append(src_rule)
+            else: #if doing distanceCorr, then only consider bigrams
+                if checkArity(src_rule) == 0 and len(src_rule.split()) == 2:
+                    preterm_rules.append(src_rule)
     return preterm_rules
 
 '''
@@ -133,9 +138,9 @@ this variant of the normalizer function is called when we are dealing with a thr
 '''
 def computeNormalizerThread(model, phrase_tuples, uniModel, uniCorrection, out_q): 
     revised_tuples = []
-    for phrase, phrase_pos, context, phraseRep, score in phrase_tuples:
+    for phrase, phrase_pos, context, phraseRep, score, sentNum in phrase_tuples:
         normalizer = 0
-        for word in model.contextVecs:
+        for word in model.contextVecs: #guaranteed that word is in context because this criterion is checked in extractContext
             contextVec = model.contextVecs[word]
             normalizer += math.exp(np.dot(contextVec, phraseRep))
         normalized_score = score - len(context)*math.log(normalizer)
@@ -145,7 +150,7 @@ def computeNormalizerThread(model, phrase_tuples, uniModel, uniCorrection, out_q
                 if word in uniModel.unigrams:
                     uniLogProb += math.log(uniModel.unigrams[word])                
             normalized_score -= uniLogProb
-        revised_tuples.append((phrase, phrase_pos, context, phraseRep, normalized_score))
+        revised_tuples.append((phrase, phrase_pos, context, phraseRep, normalized_score, sentNum))
     out_q.put(revised_tuples)
 
 '''
@@ -184,17 +189,16 @@ and scores each of those phrases in its appropriate context by first computing t
 representation and then calling the scorer. 
 The function can also be used to just print the relevant vectors. 
 '''
-def scorePhraseVectors(model, uniModel, numContext, grammar_loc, printOnly, cosine, headed): 
+def scoreSegmentations(model, uniModel, numContext, grammar_loc, printOnly, cosine, distanceCorr): 
     line_counter = 0
     phrase_tuples = []
     for line in sys.stdin: #each line is a POS-tagged sentence (sequence of word#POS pairs)
+        phrases = processRules(gzip.open(grammar_loc + "grammar.%d.gz"%line_counter, 'rb'), distanceCorr)
         words, pos_tags = zip(*[word_pos.split('#') for word_pos in line.strip().split()])
-        phrases = processRules(gzip.open(grammar_loc + "grammar.%d.gz"%line_counter, 'rb'))
-        line_counter += 1
         for phrase in phrases:            
             if model.checkVocab(phrase): 
                 phrase_words = phrase.split()
-                start, end = containsSequence(phrase_words, words)
+                start, end = containsSequence(phrase_words, words) #if we can get this information from the PSG, then it would be much easier
                 if start > -1 and end > -1:
                     phrase_pos = [extract_training.collapsePOS(pos) for pos in pos_tags[start:end]]
                     phraseRep = model.computeComposedRep(phrase, ' '.join(phrase_pos))
@@ -203,13 +207,8 @@ def scorePhraseVectors(model, uniModel, numContext, grammar_loc, printOnly, cosi
                     else:
                         context = extractContext(words, start, end, numContext, model, uniModel)
                         score = scoreCosineSim(phrase, phraseRep, model) if cosine else scoreSkipGram(context, phraseRep, model) 
-                        if headed:
-                            headedRep = model.computeHeadedRep(phrase, ' '.join(phrase_pos))
-                            headedScore = scoreCosineSim(phrase, headedRep, model) if cosine else scoreSkipGram(context, headedRep, model)
-                            score = headedScore
-                        #if headedScore > score:
-                        #        score = headedScore
-                        phrase_tuples.append((phrase, ' '.join(phrase_pos), context, phraseRep, score))
+                        phrase_tuples.append((phrase, ' '.join(phrase_pos), context, phraseRep, score, line_counter))
+        line_counter += 1
     return phrase_tuples
 
 '''
@@ -219,8 +218,8 @@ def printScoresAndDistances(revised_tuples, model, numContext, averaging, perple
     scores = []
     distances = []
     pos_scores_dist = {}
-    for phrase, phrase_pos, context, phraseRep, score in revised_tuples:        
-        numWordsInContext = sum([word in model.contextVecs for word in context])        
+    for phrase, phrase_pos, context, phraseRep, score, sentNum in revised_tuples:
+        numWordsInContext = len(context)
         if perplexity:
             score = math.exp(-score / numWordsInContext)
             scores.append(score)            
@@ -249,9 +248,40 @@ def printPOSInfo(pos_scores_dist):
             pos_coeff, pos_pval = sp.stats.stats.pearsonr(pos_scores, pos_distances)
             print "%s\t%d\t%.3f\t%.3f"%(pos_pair, len(pos_scores), pos_coeff, sum(pos_distances) / len(pos_distances))
 
+def writePerSentenceGrammar(loc_in, loc_out, phrase_tuples, averaging, perplexity):    
+    sentDict = {}
+    for phrase, phrase_pos, context, phraseRep, score, sentNum in phrase_tuples:
+        phraseDict = sentDict[sentNum] if sentNum in sentDict else {}
+        if len(context) > 0:
+            if perplexity:
+                score = math.exp(-score / len(context))
+            elif averaging:
+                score /= len(context)
+        phraseDict[phrase] = score
+        sentDict[sentNum] = phraseDict
+    numSentences = max(sentDict.keys())
+    for line_counter in xrange(numSentences+1):
+        grammar_fh = gzip.open(loc_in+"grammar.%d.gz"%line_counter, 'rb')
+        out_fh = gzip.open(loc_out+"grammar.%d.gz"%line_counter, 'w')
+        phraseDict = sentDict[line_counter]
+        for rule in grammar_fh:
+            elements = rule.strip().split(' ||| ')
+            src_rule = elements[1]
+            if src_rule in phraseDict:
+                features = elements[3]
+                features += " Segmentation=%.3f"%phraseDict[src_rule]
+                arrayToPrint = elements[:3] + [features] + elements[4:]
+                lineToPrint = ' ||| '.join(arrayToPrint)
+                out_fh.write("%s\n"%lineToPrint)
+            else:
+                out_fh.write("%s\n"%rule.strip())
+        grammar_fh.close()
+        out_fh.close()
+
 def main():    
-    (opts, args) = getopt.getopt(sys.argv[1:], 'acCfhl:n:pPs:uv')
+    (opts, args) = getopt.getopt(sys.argv[1:], 'acCd:fhl:n:pPrs:uvw:')
     concat = False
+    rightBranch = False
     numContext = 2
     numStop = 20
     averaging = False
@@ -260,14 +290,18 @@ def main():
     perplexity = False #-P
     cosine = False
     headed = False
+    distanceCorr = ""
     printVecOnly = False #-v
     printFullOnly = False #-f
     printPOSOnly = False #-p
+    writePSG = ""
     for opt in opts:
         if opt[0] == '-a':
             averaging = True
         elif opt[0] == '-c':
             concat = True
+        elif opt[0] == '-r':
+            rightBranch = True
         elif opt[0] == '-l':
             numContext = int(opt[1])
         elif opt[0] == '-s': #if numStop = 0, then no stop words used
@@ -282,38 +316,51 @@ def main():
             cosine = True
         elif opt[0] == '-h':
             headed = True
+        elif opt[0] == '-d':
+            distanceCorr = opt[1]
         elif opt[0] == '-p':
             printPOSOnly = True
         elif opt[0] == '-v':
             printVecOnly = True
         elif opt[0] == '-f':
             printFullOnly = True
-    model = CompoModel(args[2], concat, True)
+        elif opt[0] == '-w':
+            writePSG = opt[1]
+    model = CompoModel(args[2], concat, True, headed, rightBranch)
     model.readVecFile(args[0], "word")
     model.readVecFile(args[1], "context")
     uniModel = Unigrams(args[3], numStop)
-    grammar_loc = args[4]
-    distance_fh = args[5]
+    grammar_loc_in = args[4]
     distanceDict = {}
-    for line in open(distance_fh, 'rb'): #read in distances
-        elements = line.strip().split('\t')
-        distanceDict[elements[0]] = float(elements[1])
+    if distanceCorr != "": 
+        for line in open(distanceCorr, 'rb'): #read in distances
+            elements = line.strip().split('\t')
+            distanceDict[elements[0]] = float(elements[1])
     if uniCorrection and numJobs < 0: 
         sys.stderr.write("Error! Unigram correction only valid if normalization used\n")
         sys.exit()
     if averaging and perplexity:
         sys.stderr.write("Error! Cannot do both averaging and perplexity score at the same time\n")
         sys.exit()
+    if distanceCorr != "" and writePSG != "": 
+        sys.stderr.write("Error! Cannot do both distance correlation computation and writing per-sentence grammar; disable one\n")
+        sys.exit()
         
-    phrase_tuples = scorePhraseVectors(model, uniModel, numContext, grammar_loc, printVecOnly, cosine, headed)
+    phrase_tuples = scoreSegmentations(model, uniModel, numContext, grammar_loc_in, printVecOnly, cosine, distanceCorr != "")
+    print "Scored phrases in context"
     if not printVecOnly:
         revised_tuples = computeNormalizerParallel(phrase_tuples, numJobs, model, uniModel, uniCorrection) if numJobs > 0 else phrase_tuples
-        pos_score_dist, scores, distances = printScoresAndDistances(revised_tuples, model, numContext, averaging, perplexity, distanceDict, printFullOnly, printPOSOnly)
-        if printPOSOnly:
-            printPOSInfo(pos_score_dist)
-        coeff, pval = sp.stats.stats.pearsonr(scores, distances)
-        print "Out of %d samples, correlation between compositional model score and distance is %.3f (%.3f)"%(len(scores), coeff, pval)
-        print "Average distance between directly learned representations and composed representations: %.3f"%(sum(distances) / len(distances))
+        print "Normalized phrase scores (if requested)"
+        if distanceCorr != "":
+            pos_score_dist, scores, distances = printScoresAndDistances(revised_tuples, model, numContext, averaging, perplexity, distanceDict, printFullOnly, printPOSOnly)
+            if printPOSOnly:
+                printPOSInfo(pos_score_dist)
+            coeff, pval = sp.stats.stats.pearsonr(scores, distances)
+            print "Out of %d samples, correlation between compositional model score and distance is %.3f (%.3f)"%(len(scores), coeff, pval)
+            print "Average distance between directly learned representations and composed representations: %.3f"%(sum(distances) / len(distances))
+        if writePSG != "":
+            writePerSentenceGrammar(grammar_loc_in, writePSG, revised_tuples, averaging, perplexity)
+            print "Wrote per-sentence grammars"
 
 if __name__ == "__main__":
     main()
