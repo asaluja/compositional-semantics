@@ -53,7 +53,7 @@ python evaluation.py wordVecs parameters < mitchell_lapata_scores
 4. If you want to get non-compositionality scores for phrases using these parameters:
 
 ```
-python non_comp_detect.py wordVecs contextVecs parameters unigram_counts per_sentence_grammar_loc_in per_sentence_grammar_loc_out < dev_corpus_with_pos_tags
+python non_comp_detect.py wordVecs contextVecs parameters unigram_counts per_sentence_grammar_loc_in < dev_corpus_with_pos_tags
 ```
 
   Flags:
