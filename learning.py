@@ -114,8 +114,22 @@ def regressorMultivariate(data, labels, regStr):
     print "Number of non-zero values in coefficients: %d"%((reg.coef_ != 0).sum())
     return (reg.coef_, reg.intercept_)
 
+def regressorLinguisticPrior(X, y, pos_pair, alpha, dim):
+    numExamples = X.shape[0]
+    print pos_pair #make change: only do this for certain combinations
+    X = np.concatenate((np.ones((numExamples,1)), X), axis=1)
+    left_mat = np.zeros((dim, dim+1)) #+1 because of intercept
+    right_mat = np.identity(dim)*alpha
+    W_star = np.concatenate((left_mat, right_mat), axis=1) #vx(p+1) matrix
+    b = np.dot(X.T, y) + W_star.T #pxv matrix
+    #b = np.dot(X.T, y) #pxv matrix
+    A = np.dot(X.T, X) + alpha*np.identity(W_star.shape[1]) #(p+1)x(p+1) matrix
+    W = np.linalg.solve(A, b) #result should be (p+1)xv matrix
+    intercept = W[0,:]
+    return (W[1:,:].T, intercept)
 
-def learnParameters(training_data, numProc, diagonal, concat, reg):
+def learnParameters(training_data, pos_pair, numProc, diagonal, concat, reg, multivariate, alpha):
+    print "Regressor chosen: %s"%reg
     numSamples = len(training_data)
     dim = len(training_data[0][0])
     P = dim if diagonal else dim * dim
@@ -135,50 +149,52 @@ def learnParameters(training_data, numProc, diagonal, concat, reg):
     print "Completed assembling training data into regression format.  Now starting regression."
     parameter = np.zeros((dim, dim, dim)) if not concat else np.zeros((dim, 2*dim))
     intercept = np.zeros((dim))
-
-    lasso = regressor.MultiTaskLasso(alpha=5e-5)
-    lasso.fit(X, y)
-    print "R^2: %.3f"%(lasso.score(X, y))
-    coeff = lasso.coef_
-    intercept = lasso.intercept_
-    #coeff, intercept = regressorMultivariate(X, y, reg)
-
-    for idx in range(0, dim):
-        if concat:
-            parameter[idx,:] = coeff[idx,:]
-        else:
-            parameter[idx,:,:] = coeff[idx,:].reshape((dim, dim)) if not diagonal else np.diag(coeff[idx,:])
-
-    '''
-    out_q = mp.Queue()
-    procs = []
-    chunksize = int(math.floor(dim / float(numProc)))
-    for proc in range(numProc):
-        end = dim if proc == numProc - 1 else (proc+1)*chunksize
-        p = mp.Process(target=regressorParallel, args=(X, y, chunksize*proc, end, reg, out_q))
-        procs.append(p)
-        p.start()
-    coefficients = []
-    for proc in range(numProc): 
-        coefficients += out_q.get()
-    for p in procs:
-        p.join()
-    avgR2 = 0
-    for coeff_idx_tuple in coefficients:
-        idx, R2, coeff, inter = coeff_idx_tuple
-        avgR2 += R2
-        if concat:
-            parameter[idx, :] = coeff
-        else:
-            parameter[idx, :, :] = coeff.reshape((dim, dim)) if not diagonal else np.diag(coeff)
-        intercept[idx] = inter
-    print "Parameter estimation complete and tensor has been formed"
-    print "Average R2 across the %d regression problems: %.3f"%(dim, avgR2/dim)
-    '''
+    if reg == "multitask" or alpha >= 0 or multivariate:
+        if alpha >= 0:
+            coeff, intercept = regressorLinguisticPrior(X, y, pos_pair, alpha, dim)
+        elif reg == "multitask":
+            lasso = regressor.MultiTaskLasso(alpha=5e-5)        
+            print "Fixing alpha to 5e-5"
+            lasso.fit(X, y)
+            print "Multitask R^2: %.3f"%(lasso.score(X, y))
+            coeff = lasso.coef_
+            intercept = lasso.intercept_
+        else: #can only be multivariate
+            coeff, intercept = regressorMultivariate(X, y, reg)
+        for idx in range(0, dim):
+            if concat:
+                parameter[idx,:] = coeff[idx,:]
+            else:
+                parameter[idx,:,:] = coeff[idx,:].reshape((dim, dim)) if not diagonal else np.diag(coeff[idx,:])
+    else:
+        out_q = mp.Queue()
+        procs = []
+        chunksize = int(math.floor(dim / float(numProc)))
+        for proc in range(numProc):
+            end = dim if proc == numProc - 1 else (proc+1)*chunksize
+            p = mp.Process(target=regressorParallel, args=(X, y, chunksize*proc, end, reg, out_q))
+            procs.append(p)
+            p.start()
+        coefficients = []
+        for proc in range(numProc): 
+            coefficients += out_q.get()
+        for p in procs:
+            p.join()
+        avgR2 = 0
+        for coeff_idx_tuple in coefficients:
+            idx, R2, coeff, inter = coeff_idx_tuple
+            avgR2 += R2
+            if concat:
+                parameter[idx, :] = coeff
+            else:
+                parameter[idx, :, :] = coeff.reshape((dim, dim)) if not diagonal else np.diag(coeff)
+            intercept[idx] = inter
+        print "Parameter estimation complete and tensor has been formed"
+        print "Average R2 across the %d regression problems: %.3f"%(dim, avgR2/dim)
     return parameter, intercept
         
 def main():
-    (opts, args) = getopt.getopt(sys.argv[1:], 'cdfj:npr:')
+    (opts, args) = getopt.getopt(sys.argv[1:], 'cdfj:mnpP:r:')
     normalize = False
     diagonal = False
     filterDup = False
@@ -186,6 +202,8 @@ def main():
     ppdb = False
     reg = "lasso"
     jobs = 4
+    alpha = -1
+    multivariate = False
     for opt in opts:
         if opt[0] == '-n':
             normalize = True
@@ -197,23 +215,34 @@ def main():
             filterDup = True
         elif opt[0] == '-r':
             reg = opt[1]
-            if not (reg == "lasso" or reg == "ridge" or reg == "lars" or reg == "elastic"):
+            if not (reg == "lasso" or reg == "ridge" or reg == "lars" or reg == "elastic" or reg == "multitask"):
                 sys.stderr.write("Error: regressor option not recognized; defaulting to 'lasso'\n")
                 reg = "lasso"
         elif opt[0] == '-c': #concat model instead of outer product-based model
             concat = True
         elif opt[0] == '-p': #extract examples straight from PPDB
             ppdb = True
+        elif opt[0] == '-P': #prior
+            alpha = int(opt[1])
+        elif opt[0] == '-m': #multivariate version of whatever algorithm chosen in -r
+            multivariate = True
+            if reg == "multitask":
+                sys.stderr.write("Note: can only do multivariate regression on lasso, ridge, lars, or elastic")
+                sys.exit()
     if diagonal and concat:
         sys.stderr.write("Error: cannot have diagonal parametrization and concatenative model together; setting diagonalization to false\n")
         diagonal = False
+    if alpha >= 0 and (reg != "ridge" or not concat):
+        sys.stderr.write("Error: linguistic regularization only works for L-2 prior (ridge regression) and concatenative models; setting regularizer to ridge and turning concatenation on\n")
+        concat = True
+        reg = "ridge"
 
     wordVecs = readVecFile(args[0], normalize)
     training_data = createTraining(args[1], wordVecs, filterDup) if ppdb else readTrainingFromFile(args[1], wordVecs, filterDup)
     print "Regressor chosen: %s"%reg
     parameters = {}
     for pos_pair in training_data:
-        parameters[pos_pair] = learnParameters(training_data[pos_pair], jobs, diagonal, concat, reg)
+        parameters[pos_pair] = learnParameters(training_data[pos_pair], pos_pair, jobs, diagonal, concat, reg, multivariate, alpha)
         print "Completed parameter learning for POS pair %s"%pos_pair
     cPickle.dump(parameters, open(args[2], "wb"))
 

@@ -195,8 +195,8 @@ def scoreSegmentations(model, uniModel, numContext, grammar_loc, printOnly, cosi
     for line in sys.stdin: #each line is a POS-tagged sentence (sequence of word#POS pairs)
         phrases = processRules(gzip.open(grammar_loc + "grammar.%d.gz"%line_counter, 'rb'), distanceCorr)
         words, pos_tags = zip(*[word_pos.split('#') for word_pos in line.strip().split()])
-        for phrase in phrases:            
-            if model.checkVocab(phrase): 
+        for phrase in phrases: #phrase can have NTs in it
+            if model.checkVocab(phrase):                 
                 phrase_words = phrase.split()
                 start, end = containsSequence(phrase_words, words) #if we can get this information from the PSG, then it would be much easier
                 if start > -1 and end > -1:
@@ -248,13 +248,14 @@ def printPOSInfo(pos_scores_dist):
             pos_coeff, pos_pval = sp.stats.stats.pearsonr(pos_scores, pos_distances)
             print "%s\t%d\t%.3f\t%.3f"%(pos_pair, len(pos_scores), pos_coeff, sum(pos_distances) / len(pos_distances))
 
-def writePerSentenceGrammar(loc_in, loc_out, phrase_tuples, averaging, perplexity):    
+def writePerSentenceGrammar(loc_in, loc_out, phrase_tuples, averaging, perplexity, featNT):    
     sentDict = {}
     for phrase, phrase_pos, context, phraseRep, score, sentNum in phrase_tuples:
         phraseDict = sentDict[sentNum] if sentNum in sentDict else {}
         if len(context) > 0:
             if perplexity:
                 score = math.exp(-score / len(context))
+                score /= 100000 #just for feature scaling purposes
             elif averaging:
                 score /= len(context)
         phraseDict[phrase] = score
@@ -267,19 +268,31 @@ def writePerSentenceGrammar(loc_in, loc_out, phrase_tuples, averaging, perplexit
         for rule in grammar_fh:
             elements = rule.strip().split(' ||| ')
             src_rule = elements[1]
-            if src_rule in phraseDict:
-                features = elements[3]
-                features += " Segmentation=%.3f"%phraseDict[src_rule]
-                arrayToPrint = elements[:3] + [features] + elements[4:]
-                lineToPrint = ' ||| '.join(arrayToPrint)
-                out_fh.write("%s\n"%lineToPrint)
+            features = elements[3]
+            if featNT: #featurize NTs
+                subPhrases = re.split(r'\[(?:[^]]+)\]', src_rule) #split rule into lexical items divided by NTs
+                score = 0
+                counter = 0
+                for subphrase in subPhrases: 
+                    if subphrase.strip() in phraseDict: #if the subphrase has a segmentation score, i.e., it is also a pre-terminal
+                        counter += 1
+                        score += phraseDict[subphrase.strip()]
+                if counter > 0: #valid segmentation score
+                    features += " SegScore=%.3f SegOn=1"%(score / counter)
+                else:
+                    features += " NoSeg=1"
+            elif src_rule in phraseDict:
+                features += " SegScore=%.3f SegOn=1"%phraseDict[src_rule]
             else:
-                out_fh.write("%s\n"%rule.strip())
+                features += " NoSeg=1"                
+            arrayToPrint = elements[:3] + [features] + elements[4:]
+            lineToPrint = ' ||| '.join(arrayToPrint)
+            out_fh.write("%s\n"%lineToPrint)
         grammar_fh.close()
         out_fh.close()
 
 def main():    
-    (opts, args) = getopt.getopt(sys.argv[1:], 'acCd:fhl:n:pPrs:uvw:')
+    (opts, args) = getopt.getopt(sys.argv[1:], 'acCd:fhl:n:NpPrs:uvw:')
     concat = False
     rightBranch = False
     numContext = 2
@@ -290,6 +303,7 @@ def main():
     perplexity = False #-P
     cosine = False
     headed = False
+    featNTs = False
     distanceCorr = ""
     printVecOnly = False #-v
     printFullOnly = False #-f
@@ -326,6 +340,8 @@ def main():
             printFullOnly = True
         elif opt[0] == '-w':
             writePSG = opt[1]
+        elif opt[0] == '-N': #featurize phrases with NTs
+            featNTs = True
     model = CompoModel(args[2], concat, True, headed, rightBranch)
     model.readVecFile(args[0], "word")
     model.readVecFile(args[1], "context")
@@ -359,7 +375,7 @@ def main():
             print "Out of %d samples, correlation between compositional model score and distance is %.3f (%.3f)"%(len(scores), coeff, pval)
             print "Average distance between directly learned representations and composed representations: %.3f"%(sum(distances) / len(distances))
         if writePSG != "":
-            writePerSentenceGrammar(grammar_loc_in, writePSG, revised_tuples, averaging, perplexity)
+            writePerSentenceGrammar(grammar_loc_in, writePSG, revised_tuples, averaging, perplexity, featNTs)
             print "Wrote per-sentence grammars"
 
 if __name__ == "__main__":

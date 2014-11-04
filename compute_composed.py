@@ -77,8 +77,11 @@ class CompoModel:
         numChildren = 0
         root = None
         prevNode = None
-        words = phrase.split() if not self.rightBranch else phrase.split().reverse()
-        pos_tags = pos_seq.split() if not self.rightBranch else pos_seq.split().reverse()
+        words = phrase.split()
+        pos_tags = pos_seq.split()
+        if self.rightBranch:
+            words.reverse()
+            pos_tags.reverse()
         for idx, word in enumerate(words):
             tag = pos_tags[idx]
             node = PhraseTree(self.wordVecs[word], tag)
