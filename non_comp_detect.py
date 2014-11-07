@@ -248,7 +248,7 @@ def printPOSInfo(pos_scores_dist):
             pos_coeff, pos_pval = sp.stats.stats.pearsonr(pos_scores, pos_distances)
             print "%s\t%d\t%.3f\t%.3f"%(pos_pair, len(pos_scores), pos_coeff, sum(pos_distances) / len(pos_distances))
 
-def writePerSentenceGrammar(loc_in, loc_out, phrase_tuples, averaging, perplexity, featNT):    
+def writePerSentenceGrammar(loc_in, loc_out, phrase_tuples, averaging, perplexity, binning, featNT):    
     sentDict = {}
     for phrase, phrase_pos, context, phraseRep, score, sentNum in phrase_tuples:
         phraseDict = sentDict[sentNum] if sentNum in sentDict else {}
@@ -261,6 +261,21 @@ def writePerSentenceGrammar(loc_in, loc_out, phrase_tuples, averaging, perplexit
         phraseDict[phrase] = score
         sentDict[sentNum] = phraseDict
     numSentences = max(sentDict.keys())
+    if binning:
+        for sentNum in sentDict:
+            phraseDict = sentDict[sentNum]
+            phrase_scores = phraseDict.items()
+            scores = [key_val[1] for key_val in phrase_scores]
+            histo, bins = np.histogram(scores)
+            binned_scores = np.digitize(scores, bins)
+            for idx, key in enumerate(phrase_scores):
+                phrase = key[0]
+                old_val = phraseDict[phrase]
+                score = binned_scores[idx]
+                if score > len(histo):
+                    score = len(histo)
+                phraseDict[phrase] = score
+            sentDict[sentNum] = phraseDict
     for line_counter in xrange(numSentences+1):
         grammar_fh = gzip.open(loc_in+"grammar.%d.gz"%line_counter, 'rb')
         out_fh = gzip.open(loc_out+"grammar.%d.gz"%line_counter, 'w')
@@ -292,12 +307,13 @@ def writePerSentenceGrammar(loc_in, loc_out, phrase_tuples, averaging, perplexit
         out_fh.close()
 
 def main():    
-    (opts, args) = getopt.getopt(sys.argv[1:], 'acCd:fhl:n:NpPrs:uvw:')
+    (opts, args) = getopt.getopt(sys.argv[1:], 'abcCd:fhl:n:NpPrs:uvw:')
     concat = False
     rightBranch = False
     numContext = 2
     numStop = 20
     averaging = False
+    binning = False
     uniCorrection = False
     numJobs = -1
     perplexity = False #-P
@@ -312,6 +328,8 @@ def main():
     for opt in opts:
         if opt[0] == '-a':
             averaging = True
+        elif opt[0] == '-b':
+            binning = True
         elif opt[0] == '-c':
             concat = True
         elif opt[0] == '-r':
@@ -375,7 +393,7 @@ def main():
             print "Out of %d samples, correlation between compositional model score and distance is %.3f (%.3f)"%(len(scores), coeff, pval)
             print "Average distance between directly learned representations and composed representations: %.3f"%(sum(distances) / len(distances))
         if writePSG != "":
-            writePerSentenceGrammar(grammar_loc_in, writePSG, revised_tuples, averaging, perplexity, featNTs)
+            writePerSentenceGrammar(grammar_loc_in, writePSG, revised_tuples, averaging, perplexity, binning, featNTs)
             print "Wrote per-sentence grammars"
 
 if __name__ == "__main__":

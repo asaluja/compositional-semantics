@@ -34,6 +34,7 @@ python learning.py wordVecs sorted_ppdb_examples parameters
   - `-d`: diagonal approximation: only the diagonal of the resulting tensor parameters is active
   - `-c`: concatenative model. Instead of N^2 covariates, where N is the dimension of one vector, we have 2*N covariates. Note that the diagonal approximation and the concatenative model flags cannot be used together. 
   - `-p`: use PPDB; this means that the second argument passed to the script is actually PPDB, not the POS-sorted examples
+  - `-P`: linguistic regularization prior strength
 
 3. If you want to evaluate the learned representations against the human evaluations (in the Mitchell & Lapata 2010 study), you can run the evaluation module:
 
@@ -58,6 +59,7 @@ python non_comp_detect.py wordVecs contextVecs parameters unigram_counts per_sen
 
   Flags:
   - `-c`: concatenative model. If the parameters have been learned using a concatenative model, then this flag is required. 
+  - `-b`: bin the values (default number of bins: 10); adds a type of non-linearity and more discrimination
   - `-a`: averaging; divide the log probability by the number of words to normalize for context length (beginning/end sentence effects)
   - `-l X`: context length; the number of words to look at on one side of the phrase (so the window is double this)
   - `-s X`: number of stop words to filter in the context. 0 means do not filter stop words. 
@@ -72,6 +74,7 @@ python non_comp_detect.py wordVecs contextVecs parameters unigram_counts per_sen
   - `-r`: select right-branching when computing compositional representations for phrases of length greater than 2.  The default is left-branching. 
   - `-h`: impose heuristic headedness when computing compositional representations.  For 'JJ-NN' and 'NN-NN' the right word is the head word and only its representation is used; for 'VV-NN' the verb is the head word. 
   - `-w X`: write per-sentence grammars out; the grammars are in the same format as the grammars being read in, except we add an extra 'Segmentation' feature based on the non-compositionality score
+  - `-N`: featurize rules witih non-terminals as well, based on the lexical items they contain. 
 
   1. Note that in order to do non-compositionality detection, an evaluation set must be provided with the POS tags (separated by '#').  In order to do this, run the following command:
 

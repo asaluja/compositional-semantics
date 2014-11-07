@@ -121,15 +121,14 @@ def regressorLinguisticPrior(X, y, pos_pair, alpha, dim):
     left_mat = np.zeros((dim, dim+1)) #+1 because of intercept
     right_mat = np.identity(dim)*alpha
     W_star = np.concatenate((left_mat, right_mat), axis=1) #vx(p+1) matrix
-    b = np.dot(X.T, y) + W_star.T #pxv matrix
-    #b = np.dot(X.T, y) #pxv matrix
+    #set b depending on what the POS pair is, otherwise can just always set it to the 'else' value
+    b = np.dot(X.T, y) if pos_pair == "X X" or pos_pair == "NN NN" else np.dot(X.T, y) + W_star.T #pxv matrix
     A = np.dot(X.T, X) + alpha*np.identity(W_star.shape[1]) #(p+1)x(p+1) matrix
     W = np.linalg.solve(A, b) #result should be (p+1)xv matrix
     intercept = W[0,:]
     return (W[1:,:].T, intercept)
 
 def learnParameters(training_data, pos_pair, numProc, diagonal, concat, reg, multivariate, alpha):
-    print "Regressor chosen: %s"%reg
     numSamples = len(training_data)
     dim = len(training_data[0][0])
     P = dim if diagonal else dim * dim
