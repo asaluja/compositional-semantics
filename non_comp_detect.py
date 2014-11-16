@@ -189,12 +189,15 @@ and scores each of those phrases in its appropriate context by first computing t
 representation and then calling the scorer. 
 The function can also be used to just print the relevant vectors. 
 '''
-def scoreSegmentations(model, uniModel, numContext, grammar_loc, printOnly, cosine, distanceCorr): 
+def scoreSegmentations(model, uniModel, numContext, grammar_loc, printOnly, cosine, distanceCorr, writePSG): 
     line_counter = 0
     phrase_tuples = []
-    for line in sys.stdin: #each line is a POS-tagged sentence (sequence of word#POS pairs)
-        phrases = processRules(gzip.open(grammar_loc + "grammar.%d.gz"%line_counter, 'rb'), distanceCorr)
-        words, pos_tags = zip(*[word_pos.split('#') for word_pos in line.strip().split()])
+    for line in sys.stdin: #each line is a POS-tagged sentence (sequence of word#POS pairs) 
+        phrase_context = None
+        if not writePSG:
+            phrase_context = line.strip().split(' ||| ')
+        phrases = processRules(gzip.open(grammar_loc + "grammar.%d.gz"%line_counter, 'rb'), distanceCorr) if writePSG else [phrase_context[0]]
+        words, pos_tags = zip(*[word_pos.split('#') for word_pos in line.strip().split()]) if writePSG else zip(*[word_pos.split('#') for word_pos in phrase_context[1].split()])
         for phrase in phrases: #phrase can have NTs in it
             if model.checkVocab(phrase):                 
                 phrase_words = phrase.split()
@@ -279,33 +282,61 @@ def writePerSentenceGrammar(loc_in, loc_out, phrase_tuples, averaging, perplexit
     for line_counter in xrange(numSentences+1):
         grammar_fh = gzip.open(loc_in+"grammar.%d.gz"%line_counter, 'rb')
         out_fh = gzip.open(loc_out+"grammar.%d.gz"%line_counter, 'w')
-        phraseDict = sentDict[line_counter]
-        for rule in grammar_fh:
-            elements = rule.strip().split(' ||| ')
-            src_rule = elements[1]
-            features = elements[3]
-            if featNT: #featurize NTs
-                subPhrases = re.split(r'\[(?:[^]]+)\]', src_rule) #split rule into lexical items divided by NTs
-                score = 0
-                counter = 0
-                for subphrase in subPhrases: 
-                    if subphrase.strip() in phraseDict: #if the subphrase has a segmentation score, i.e., it is also a pre-terminal
-                        counter += 1
-                        score += phraseDict[subphrase.strip()]
-                if counter > 0: #valid segmentation score
-                    features += " SegScore=%.3f SegOn=1"%(score / counter)
+        if line_counter not in sentDict:
+            for rule in grammar_fh: 
+                elements = rule.strip().split(' ||| ')
+                features = elements[3]
+                features += " NoSeg=1"
+                arrayToPrint = elements[:3] + [features] + elements[4:]
+                lineToPrint = ' ||| '.join(arrayToPrint)
+                out_fh.write("%s\n"%lineToPrint)
+            grammar_fh.close()
+            out_fh.close()
+        else:
+            phraseDict = sentDict[line_counter]
+            for rule in grammar_fh:
+                elements = rule.strip().split(' ||| ')
+                src_rule = elements[1]
+                features = elements[3]
+                if featNT: #featurize NTs
+                    subPhrases = re.split(r'\[(?:[^]]+)\]', src_rule) #split rule into lexical items divided by NTs
+                    score = 0
+                    counter = 0
+                    for subphrase in subPhrases: 
+                        if subphrase.strip() in phraseDict: #if the subphrase has a segmentation score, i.e., it is also a pre-terminal
+                            counter += 1
+                            score += phraseDict[subphrase.strip()]
+                    if counter > 0: #valid segmentation score
+                        features += " SegScore=%.3f SegOn=1"%(score / counter)
+                        #features += " SegOn=1"
+                    else:
+                        features += " NoSeg=1"
+                elif src_rule in phraseDict:
+                    features += " SegScore=%.3f SegOn=1"%phraseDict[src_rule]
                 else:
-                    features += " NoSeg=1"
-            elif src_rule in phraseDict:
-                features += " SegScore=%.3f SegOn=1"%phraseDict[src_rule]
-            else:
-                features += " NoSeg=1"                
-            arrayToPrint = elements[:3] + [features] + elements[4:]
-            lineToPrint = ' ||| '.join(arrayToPrint)
-            out_fh.write("%s\n"%lineToPrint)
-        grammar_fh.close()
-        out_fh.close()
+                    features += " NoSeg=1"                
+                arrayToPrint = elements[:3] + [features] + elements[4:]
+                lineToPrint = ' ||| '.join(arrayToPrint)
+                out_fh.write("%s\n"%lineToPrint)
+            grammar_fh.close()
+            out_fh.close()
 
+def writeNonCompScores(phrase_tuples, averaging, perplexity, binning):
+    phraseDict = {}
+    for phrase, phrase_pos, context, phraseRep, score, sentNum in phrase_tuples:
+        if len(context) > 0:
+            if perplexity:
+                score = math.exp(-score / len(context))
+            elif averaging:
+                score /= len(context)
+        scores = phraseDict[phrase] if phrase in phraseDict else []
+        scores.append(score)
+        phraseDict[phrase] = scores
+    for phrase in phraseDict:
+        scores = phraseDict[phrase]
+        averageScore = sum(scores) / len(scores)
+        print "%s ||| %.3f"%(phrase, averageScore)
+        
 def main():    
     (opts, args) = getopt.getopt(sys.argv[1:], 'abcCd:fhl:n:NpPrs:uvw:')
     concat = False
@@ -380,11 +411,11 @@ def main():
         sys.stderr.write("Error! Cannot do both distance correlation computation and writing per-sentence grammar; disable one\n")
         sys.exit()
         
-    phrase_tuples = scoreSegmentations(model, uniModel, numContext, grammar_loc_in, printVecOnly, cosine, distanceCorr != "")
-    print "Scored phrases in context"
+    phrase_tuples = scoreSegmentations(model, uniModel, numContext, grammar_loc_in, printVecOnly, cosine, distanceCorr != "", writePSG != "")
+    sys.stderr.write("Scored phrases in context\n")
     if not printVecOnly:
         revised_tuples = computeNormalizerParallel(phrase_tuples, numJobs, model, uniModel, uniCorrection) if numJobs > 0 else phrase_tuples
-        print "Normalized phrase scores (if requested)"
+        sys.stderr.write("Normalized phrase scores (if requested)\n")
         if distanceCorr != "":
             pos_score_dist, scores, distances = printScoresAndDistances(revised_tuples, model, numContext, averaging, perplexity, distanceDict, printFullOnly, printPOSOnly)
             if printPOSOnly:
@@ -394,7 +425,9 @@ def main():
             print "Average distance between directly learned representations and composed representations: %.3f"%(sum(distances) / len(distances))
         if writePSG != "":
             writePerSentenceGrammar(grammar_loc_in, writePSG, revised_tuples, averaging, perplexity, binning, featNTs)
-            print "Wrote per-sentence grammars"
+            sys.stderr.write("Wrote per-sentence grammars\n")
+        else: #then just write out phrase ||| average score over context sentences
+            writeNonCompScores(revised_tuples, averaging, perplexity, binning)
 
 if __name__ == "__main__":
     main()
