@@ -7,8 +7,10 @@
 \usepackage{times}
 \usepackage{latexsym}
 \usepackage{amsmath}
+\usepackage{amstext}
 \usepackage{amssymb}
 \usepackage{graphicx}
+\usepackage{color}
 \usepackage{subcaption}
 \usepackage{enumitem}
 \usepackage{bm}
@@ -23,6 +25,10 @@
 \newcommand{\bW}{{\bf W}}
 \newcommand{\bC}{{\bf C}}
 \renewcommand{\baselinestretch}{1.0}
+\newcommand{\ensuretext}[1]{#1}
+\newcommand{\clabcomment}[3]{\ensuretext{\textcolor{#3}{[#1 #2]}}}
+\newcommand{\cjdmarker}{\ensuretext{\textcolor{green}{\ensuremath{^{\textsc{cj}}_{\textsc{d}}}}}}
+\newcommand{\cjd}[1]{\clabcomment{\cjdmarker}{#1}{green}}
 
 \title{Scalable Learning and Scoring of Compositional Phenomena}
 
@@ -43,31 +49,31 @@
 \begin{document}
 \maketitle
 \begin{abstract}
-	In an effort to make vector space models of meaning more scalable and applicable in downstream tasks, learning compositional models that compute phrase representations from those of words, along with methods that score the level of phrase compositionality, have become increasingly important. 
-	In this paper, we introduce the use of automatically-extracted paraphrase information as a novel source of supervision when training these compositional models, along with a mechanism that can score phrase compositionality using contextual information. 
+Effective compositional vector space models of meaning promise a new solutions to numerous stubborn language understanding tasks. However, a challenge to learning such models is the lack of large amounts of direct supervision for semantic relatedness. 
+This paper proposes using automatically-extracted paraphrase information as a novel source of supervision when training these compositional models, along with a mechanism that can score phrase compositionality using contextual information. 
 	Experimental results indicate that these multiple sources of information can be used to learn partial semantic supervision that matches previous techniques in intrinsic evaluation tasks. 
 	Our approaches are also evaluated for their impact on a machine translation system where we show improvements in translation quality, demonstrating that compositionality in interpretation correlates with compositionality in translation. 
  \end{abstract}
 
 \section{Introduction}
 
-Using contextual information to encode lexical semantic information through vector space models of meaning has been shown to be empirically effective across a wide variety of tasks \cite{Turian2010,Turney2010,Mikolov2013b}.  
-However, methods that learn these word representations \cite[\emph{inter alia}]{Sahlgren2006,Collobert2011} scale poorly when applied to \emph{multiword phrases}, motivating research in models that combine word representations to infer the semantics of longer units like phrases or sentences \cite{Mitchell2010,Baroni2010,Socher2013}.
+Using contextual information to encode lexical semantic information through vector space models of meaning has been shown to be empirically effective across a wide variety of tasks \cite{Turian2010,Turney2010,Mikolov2013b}.
+However, while lexical semantic properties may be well captured with contextual information, learning representations of larger objects is more difficult \cite[\emph{inter alia}]{Sahlgren2006,Collobert2011}, which has motivating research in models that \emph{combine} word representations to infer the semantics of longer units like phrases or sentences \cite{Mitchell2010,Baroni2010,Socher2013}.
 These models attempt to circumvent the obvious computational and statistical issues that arise from estimating multiword representations directly: there are far more units that need to be handled and the occurrences of such units in training corpora diminish rapidly.  
-They impose the assumption that longer units like phrases are \emph{compositional} i.e., a phrase's meaning can be understood from the literal meaning of its parts. 
-However, countless examples that run contrary to the assumption exist, such as ``kick the bucket'' or ``snake oil'', and handling these \emph{non-compositional} phrases has been problematic and of long-standing interest in the community \cite{Lin1999,Sag2002}.
+They impose the assumption that longer units like phrases are \textbf{compositional}, i.e., a phrase's meaning can be understood from the literal meaning of its parts. 
+However, countless examples that run contrary to the assumption exist, such as ``kick the bucket'' or ``snake oil'', and handling these \textbf{non-compositional} phrases has been problematic and of long-standing interest in the community \cite{Lin1999,Sag2002}.
 Compositionality detection and scoring as a problem is particularly relevant for downstream tasks like machine translation (MT) or information retrieval, where a literal interpretation of a non-compositional phrase could have comical (or disastrous) consequences. 
-Working with the notion that there exists a compositionality continuum \cite{McCarthy2003}, several scoring methods have been proposed \cite{Reddy2011,Kiela2013,Salehi2014}, but they ignore the context in which the phrase is being used. 
+Working with the notion that there exists a compositionality continuum \cite{McCarthy2003}, several scoring methods have been proposed \cite{Reddy2011,Kiela2013,Salehi2014}, but they ignore the context in which the phrase is being used.
 
-Many of the compositional representation and scoring models are either overly parametrized (compositional operators are word-specific), learned from human-annotated corpora, or both. 
-These characteristics make such approaches difficult to apply in large-scale tasks with infrequently-occurring words, which is why most previous evaluations for this problem have focused on tasks with limited vocabularies and specific phrasal relationships (e.g., verb-object phrase similarity tasks), or at most on sentiment prediction and paraphrase detection. 
+%Many of the compositional representation and scoring models are either overly parametrized (compositional operators are word-specific), learned from human-annotated corpora, or both. 
+%These characteristics make such approaches difficult to apply in large-scale tasks with infrequently-occurring words, which is why most previous evaluations for this problem have focused on tasks with limited vocabularies and specific phrasal relationships (e.g., verb-object phrase similarity tasks), or at most on sentiment prediction and paraphrase detection. 
 
 In this work we propose a robust, scalable framework that learns compositional functions and scores phrase compositionality, which relies minimally on annotated data and can be easily integrated in real-world downstream tasks. 
 We make three contributions: first, a novel way to learn compositional functions for part-of-speech pairs that uses supervision from an automatically-extracted list of paraphrases (\S\ref{sec:ppdb}). 
 %Second, a new regularizer that incorporates linguistic notions of headedness while learning these functions in a linear regression setting (\S\ref{sec:concat}-\S\ref{sec:regularization}). 
 Second, a context-dependent scoring model that scores the relative compositionality of a phrase by computing the likelihood of its context given its paraphrase-learned representation (\S\ref{sec:context}). 
 And third, an evaluation of the impact of compositionality knowledge in an end-to-end machine translation setup.
-Our experiments (\S\ref{sec:experiments}) reveal that paraphrase information can learn compositional functions and phrase vectors that yield roughly equivalent correlations to human judgments compared to previous approaches, and can consistently improve translations produced by an English-Spanish translation system. 
+Our experiments (\S\ref{sec:experiments}) reveal that paraphrase information can learn compositional functions and phrase vectors that yield roughly equivalent correlations to human judgments compared to previous approaches, and can consistently improve translations produced by an English--Spanish translation system.\cjd{You bring up noncompositionality in the previous paragraph but it disappears when you discuss the contributions.}
 
 \section{Learning Compositional Functions}
 \label{sec:learning}
