@@ -1,0 +1,290 @@
+\begin{thebibliography}{}
+
+\bibitem[\protect\citename{Bannard and Callison-Burch}2005]{Bannard2005}
+Colin Bannard and Chris Callison-Burch.
+\newblock 2005.
+\newblock Paraphrasing with bilingual parallel corpora.
+\newblock In {\em Proceedings of the 43rd Annual Meeting of the Association for
+  Computational Linguistics (ACL'05)}, pages 597--604, Ann Arbor, Michigan,
+  June. Association for Computational Linguistics.
+
+\bibitem[\protect\citename{Bannard \bgroup et al.\egroup }2003]{Bannard2003}
+Colin Bannard, Timothy Baldwin, and Alex Lascarides.
+\newblock 2003.
+\newblock A statistical approach to the semantics of verb-particles.
+\newblock In {\em Proceedings of the ACL 2003 Workshop on Multiword
+  Expressions: Analysis, Acquisition and Treatment}, pages 65--72, Sapporo,
+  Japan, July. Association for Computational Linguistics.
+
+\bibitem[\protect\citename{Baroni and Zamparelli}2010]{Baroni2010}
+Marco Baroni and Roberto Zamparelli.
+\newblock 2010.
+\newblock Nouns are vectors, adjectives are matrices: Representing
+  adjective-noun constructions in semantic space.
+\newblock In {\em Proceedings of the 2010 Conference on Empirical Methods in
+  Natural Language Processing}, EMNLP '10, pages 1183--1193, Stroudsburg, PA,
+  USA. Association for Computational Linguistics.
+
+\bibitem[\protect\citename{Blacoe and Lapata}2012]{Blacoe2012}
+William Blacoe and Mirella Lapata.
+\newblock 2012.
+\newblock A comparison of vector-based representations for semantic
+  composition.
+\newblock In {\em Proceedings of the 2012 Joint Conference on Empirical Methods
+  in Natural Language Processing and Computational Natural Language Learning},
+  pages 546--556, Jeju Island, Korea, July. Association for Computational
+  Linguistics.
+
+\bibitem[\protect\citename{Chiang}2007]{Chiang2007}
+David Chiang.
+\newblock 2007.
+\newblock Hierarchical phrase-based translation.
+\newblock {\em Computational Linguistics}, 33(2):201--228, June.
+
+\bibitem[\protect\citename{Collobert \bgroup et al.\egroup
+  }2011]{Collobert2011}
+R.~Collobert, J.~Weston, L.~Bottou, M.~Karlen, K.~Kavukcuoglu, and P.~Kuksa.
+\newblock 2011.
+\newblock Natural language processing (almost) from scratch.
+\newblock {\em Journal of Machine Learning Research}, 12:2493--2537.
+
+\bibitem[\protect\citename{Dyer \bgroup et al.\egroup }2010]{Dyer2010}
+Chris Dyer, Adam Lopez, Juri Ganitkevitch, Johnathan Weese, Ferhan Ture, Phil
+  Blunsom, Hendra Setiawan, Vladimir Eidelman, and Philip Resnik.
+\newblock 2010.
+\newblock cdec: A decoder, alignment, and learning framework for finite-state
+  and context-free translation models.
+\newblock In {\em Proceedings of ACL}.
+
+\bibitem[\protect\citename{Ganitkevitch \bgroup et al.\egroup
+  }2013]{Ganitkevich2013}
+Juri Ganitkevitch, Benjamin {Van Durme}, and Chris Callison-Burch.
+\newblock 2013.
+\newblock {PPDB}: The paraphrase database.
+\newblock In {\em Proceedings of NAACL-HLT}, pages 758--764, Atlanta, Georgia,
+  June. Association for Computational Linguistics.
+
+\bibitem[\protect\citename{Goldberg and Levy}2014]{Goldberg2014}
+Yoav Goldberg and Omer Levy.
+\newblock 2014.
+\newblock word2vec explained: deriving mikolov et al.'s negative-sampling
+  word-embedding method.
+\newblock {\em CoRR}, abs/1402.3722.
+
+\bibitem[\protect\citename{Grefenstette \bgroup et al.\egroup
+  }2013]{Grefenstette2013}
+Edward Grefenstette, Georgiana Dinu, Yao-Zhong Zhang, Mehrnoosh Sadrzadeh, and
+  Marco Baroni.
+\newblock 2013.
+\newblock Multi-step regression learning for compositional distributional
+  semantics.
+\newblock In {\em Proceedings of the 10th International Conference on
+  Computational Semantics (IWCS 2013)}.
+
+\bibitem[\protect\citename{Guevara}2011]{Guevara2011}
+Emiliano Guevara.
+\newblock 2011.
+\newblock Computing semantic compositionality in distributional semantics.
+\newblock In {\em Proceedings of the Ninth International Conference on
+  Computational Semantics}, IWCS '11, pages 135--144, Stroudsburg, PA, USA.
+  Association for Computational Linguistics.
+
+\bibitem[\protect\citename{Hermann and Blunsom}2013]{Hermann2013}
+Karl~Moritz Hermann and Phil Blunsom.
+\newblock 2013.
+\newblock {The Role of Syntax in Vector Space Models of Compositional
+  Semantics}.
+\newblock In {\em Proceedings of the 51st Annual Meeting of the Association for
+  Computational Linguistics (Volume 1: Long Papers)}, pages 894--904, Sofia,
+  Bulgaria, August. Association for Computational Linguistics.
+
+\bibitem[\protect\citename{Kalchbrenner \bgroup et al.\egroup
+  }2014]{Kalchbrenner2014}
+Nal Kalchbrenner, Edward Grefenstette, and Phil Blunsom.
+\newblock 2014.
+\newblock A convolutional neural network for modelling sentences.
+\newblock In {\em Proceedings of the 52nd Annual Meeting of the Association for
+  Computational Linguistics (Volume 1: Long Papers)}, pages 655--665,
+  Baltimore, Maryland, June. Association for Computational Linguistics.
+
+\bibitem[\protect\citename{Kiela and Clark}2013]{Kiela2013}
+Douwe Kiela and Stephen Clark.
+\newblock 2013.
+\newblock {Detecting Compositionality of Multi-Word Expressions using Nearest
+  Neighbours in Vector Space Models}.
+\newblock In {\em {Proceedings of the Conference on Empirical Methods in
+  Natural Language Processing (EMNLP-13)}}.
+
+\bibitem[\protect\citename{Koehn \bgroup et al.\egroup }2003]{Koehn2003}
+Philipp Koehn, Franz~Josef Och, and Daniel Marcu.
+\newblock 2003.
+\newblock Statistical phrase-based translation.
+\newblock In {\em Proceedings of {NAACL}}.
+
+\bibitem[\protect\citename{Le and Mikolov}2014]{Le2014}
+Quoc Le and Tomas Mikolov.
+\newblock 2014.
+\newblock Distributed representations of sentences and documents.
+\newblock In Tony Jebara and Eric~P. Xing, editors, {\em Proceedings of the
+  31st International Conference on Machine Learning (ICML-14)}, pages
+  1188--1196. JMLR Workshop and Conference Proceedings.
+
+\bibitem[\protect\citename{Lin}1999]{Lin1999}
+Dekang Lin.
+\newblock 1999.
+\newblock Automatic identification of non-compositional phrases.
+\newblock In {\em Proceedings of the 37th Annual Meeting of the Association for
+  Computational Linguistics on Computational Linguistics}, ACL '99, pages
+  317--324, Stroudsburg, PA, USA. Association for Computational Linguistics.
+
+\bibitem[\protect\citename{McCarthy \bgroup et al.\egroup }2003]{McCarthy2003}
+Diana McCarthy, Bill Keller, and John Carroll.
+\newblock 2003.
+\newblock Detecting a continuum of compositionality in phrasal verbs.
+\newblock In {\em Proceedings of the ACL 2003 Workshop on Multiword
+  Expressions: Analysis, Acquisition and Treatment}, pages 73--80, Sapporo,
+  Japan, July. Association for Computational Linguistics.
+
+\bibitem[\protect\citename{Mikolov \bgroup et al.\egroup }2013]{Mikolov2013b}
+Tomas Mikolov, Ilya Sutskever, Kai Chen, Greg Corrado, and Jeffrey Dean.
+\newblock 2013.
+\newblock Distributed representations of words and phrases and their
+  compositionality.
+
+\bibitem[\protect\citename{Mitchell and Lapata}2008]{Mitchell2008}
+Jeff Mitchell and Mirella Lapata.
+\newblock 2008.
+\newblock Vector-based models of semantic composition.
+\newblock In {\em Proceedings of ACL-08: HLT}, pages 236--244, Columbus, Ohio.
+
+\bibitem[\protect\citename{Mitchell and Lapata}2010]{Mitchell2010}
+Jeff Mitchell and Mirella Lapata.
+\newblock 2010.
+\newblock Composition in distributional models of semantics.
+\newblock {\em Cognitive Science}, 34(8):1388--1439.
+
+\bibitem[\protect\citename{Paperno \bgroup et al.\egroup }2014]{Paperno2014}
+Denis Paperno, Nghia~The Pham, and Marco Baroni.
+\newblock 2014.
+\newblock A practical and linguistically-motivated approach to compositional
+  distributional semantics.
+\newblock In {\em Proceedings of the 52nd Annual Meeting of the Association for
+  Computational Linguistics (Volume 1: Long Papers)}, pages 90--99, Baltimore,
+  Maryland, June. Association for Computational Linguistics.
+
+\bibitem[\protect\citename{Papineni \bgroup et al.\egroup }2002]{Papineni2002}
+Kishore Papineni, Salim Roukos, Todd Ward, and Wei-Jing Zhu.
+\newblock 2002.
+\newblock {BLEU}: A method for automatic evaluation of machine translation.
+\newblock In {\em Proceedings of {ACL}}.
+
+\bibitem[\protect\citename{Pecina and Schlesinger}2006]{Pecina2006}
+Pavel Pecina and Pavel Schlesinger.
+\newblock 2006.
+\newblock Combining association measures for collocation extraction.
+\newblock In {\em Proceedings of the COLING/ACL on Main Conference Poster
+  Sessions}, COLING-ACL '06, pages 651--658, Stroudsburg, PA, USA. Association
+  for Computational Linguistics.
+
+\bibitem[\protect\citename{Reddy \bgroup et al.\egroup }2011]{Reddy2011}
+Siva Reddy, Diana McCarthy, and Suresh Manandhar.
+\newblock 2011.
+\newblock An empirical study on compositionality in compound nouns.
+\newblock In {\em Proceedings of 5th International Joint Conference on Natural
+  Language Processing}, pages 210--218, Chiang Mai, Thailand, November. Asian
+  Federation of Natural Language Processing.
+
+\bibitem[\protect\citename{Sag \bgroup et al.\egroup }2002]{Sag2002}
+Ivan~A. Sag, Timothy Baldwin, Francis Bond, Ann~A. Copestake, and Dan
+  Flickinger.
+\newblock 2002.
+\newblock Multiword expressions: A pain in the neck for nlp.
+\newblock In {\em Proceedings of the Third International Conference on
+  Computational Linguistics and Intelligent Text Processing}, CICLing '02,
+  pages 1--15, London, UK, UK. Springer-Verlag.
+
+\bibitem[\protect\citename{Sahlgren}2006]{Sahlgren2006}
+M.~Sahlgren.
+\newblock 2006.
+\newblock {\em The Word-Space Model: Using distributional analysis to represent
+  syntagmatic and paradigmatic relations between words in high-dimensional
+  vector spaces}.
+\newblock {Ph.D.} thesis, Department of Linguistics, Stockholm University.
+
+\bibitem[\protect\citename{Salehi \bgroup et al.\egroup }2014]{Salehi2014}
+Bahar Salehi, Paul Cook, and Timothy Baldwin.
+\newblock 2014.
+\newblock Using distributional similarity of multi-way translations to predict
+  multiword expression compositionality.
+\newblock In {\em Proceedings of the 14th Conference of the European Chapter of
+  the Association for Computational Linguistics}, pages 472--481, Gothenburg,
+  Sweden, April. Association for Computational Linguistics.
+
+\bibitem[\protect\citename{Socher \bgroup et al.\egroup }2012]{Socher2012}
+Richard Socher, Brody Huval, Christopher~D. Manning, and Andrew~Y. Ng.
+\newblock 2012.
+\newblock {Semantic Compositionality Through Recursive Matrix-Vector Spaces}.
+\newblock In {\em Proceedings of the 2012 Conference on Empirical Methods in
+  Natural Language Processing (EMNLP)}.
+
+\bibitem[\protect\citename{Socher \bgroup et al.\egroup }2013]{Socher2013}
+Richard Socher, Alex Perelygin, Jean Wu, Jason Chuang, Christopher~D. Manning,
+  Andrew Ng, and Christopher Potts.
+\newblock 2013.
+\newblock Recursive deep models for semantic compositionality over a sentiment
+  treebank.
+\newblock In {\em Proceedings of the 2013 Conference on Empirical Methods in
+  Natural Language Processing}, pages 1631--1642, Seattle, Washington, USA,
+  October. Association for Computational Linguistics.
+
+\bibitem[\protect\citename{Sporleder and Li}2009]{Sporleder2009}
+Caroline Sporleder and Linlin Li.
+\newblock 2009.
+\newblock Unsupervised recognition of literal and non-literal use of idiomatic
+  expressions.
+\newblock In {\em Proceedings of the 12th Conference of the European Chapter of
+  the ACL (EACL 2009)}, pages 754--762, Athens, Greece, March. Association for
+  Computational Linguistics.
+
+\bibitem[\protect\citename{Turian \bgroup et al.\egroup }2010]{Turian2010}
+Joseph Turian, Lev Ratinov, and Yoshua Bengio.
+\newblock 2010.
+\newblock Word representations: A simple and general method for semi-supervised
+  learning.
+\newblock In {\em Proceedings of the 48th Annual Meeting of the Association for
+  Computational Linguistics}, ACL '10, pages 384--394, Stroudsburg, PA, USA.
+  Association for Computational Linguistics.
+
+\bibitem[\protect\citename{Turney and Pantel}2010]{Turney2010}
+Peter~D. Turney and Patrick Pantel.
+\newblock 2010.
+\newblock From frequency to meaning: Vector space models of semantics.
+\newblock {\em J. Artif. Int. Res.}, 37(1):141--188, January.
+
+\bibitem[\protect\citename{Xiong \bgroup et al.\egroup }2010]{Xiong2010}
+Deyi Xiong, Min Zhang, and Haizhou Li.
+\newblock 2010.
+\newblock Learning translation boundaries for phrase-based decoding.
+\newblock In {\em Human Language Technologies: The 2010 Annual Conference of
+  the North American Chapter of the Association for Computational Linguistics},
+  pages 136--144, Los Angeles, California, June. Association for Computational
+  Linguistics.
+
+\bibitem[\protect\citename{Zanzotto \bgroup et al.\egroup }2010]{Zanzotto2010}
+Fabio~Massimo Zanzotto, Ioannis Korkontzelos, Francesca Fallucchi, and Suresh
+  Manandhar.
+\newblock 2010.
+\newblock Estimating linear models for compositional distributional semantics.
+\newblock In {\em Proceedings of the 23rd International Conference on
+  Computational Linguistics (Coling 2010)}, pages 1263--1271, Beijing, China,
+  August. Coling 2010 Organizing Committee.
+
+\bibitem[\protect\citename{Zhang \bgroup et al.\egroup }2008]{Zhang2008b}
+Hao Zhang, Chris Quirk, Robert~C. Moore, and Daniel Gildea.
+\newblock 2008.
+\newblock {Bayesian} learning of non-compositional phrases with synchronous
+  parsing.
+\newblock In {\em Proceedings of ACL-08: HLT}, pages 97--105, Columbus, Ohio,
+  June. Association for Computational Linguistics.
+
+\end{thebibliography}
