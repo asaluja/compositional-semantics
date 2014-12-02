@@ -49,7 +49,7 @@
 \begin{document}
 \maketitle
 \begin{abstract}
-Effective compositional vector space models of meaning promise a new solutions to numerous stubborn language understanding tasks. However, a challenge to learning such models is the lack of large amounts of direct supervision for semantic relatedness. 
+Effective compositional vector space models of meaning promise new solutions to numerous stubborn language understanding tasks. However, a challenge to learning such models is the lack of large amounts of direct supervision for semantic relatedness. 
 This paper proposes using automatically-extracted paraphrase information as a novel source of supervision when training these compositional models, along with a mechanism that can score phrase compositionality using contextual information. 
 	Experimental results indicate that these multiple sources of information can be used to learn partial semantic supervision that matches previous techniques in intrinsic evaluation tasks. 
 	Our approaches are also evaluated for their impact on a machine translation system where we show improvements in translation quality, demonstrating that compositionality in interpretation correlates with compositionality in translation. 
@@ -58,22 +58,28 @@ This paper proposes using automatically-extracted paraphrase information as a no
 \section{Introduction}
 
 Using contextual information to encode lexical semantic information through vector space models of meaning has been shown to be empirically effective across a wide variety of tasks \cite{Turian2010,Turney2010,Mikolov2013b}.
-However, while lexical semantic properties may be well captured with contextual information, learning representations of larger objects is more difficult \cite[\emph{inter alia}]{Sahlgren2006,Collobert2011}, which has motivating research in models that \emph{combine} word representations to infer the semantics of longer units like phrases or sentences \cite{Mitchell2010,Baroni2010,Socher2013}.
+However, while lexical semantic properties may be well captured with contextual information, learning representations of larger objects is more difficult \cite[\emph{inter alia}]{Sahlgren2006,Collobert2011}, motivating research in models that \emph{combine} word representations to infer the semantics of longer units like phrases or sentences \cite{Mitchell2010,Baroni2010,Socher2013}.
 These models attempt to circumvent the obvious computational and statistical issues that arise from estimating multiword representations directly: there are far more units that need to be handled and the occurrences of such units in training corpora diminish rapidly.  
-They impose the assumption that longer units like phrases are \textbf{compositional}, i.e., a phrase's meaning can be understood from the literal meaning of its parts. 
-However, countless examples that run contrary to the assumption exist, such as ``kick the bucket'' or ``snake oil'', and handling these \textbf{non-compositional} phrases has been problematic and of long-standing interest in the community \cite{Lin1999,Sag2002}.
-Compositionality detection and scoring as a problem is particularly relevant for downstream tasks like machine translation (MT) or information retrieval, where a literal interpretation of a non-compositional phrase could have comical (or disastrous) consequences. 
-Working with the notion that there exists a compositionality continuum \cite{McCarthy2003}, several scoring methods have been proposed \cite{Reddy2011,Kiela2013,Salehi2014}, but they ignore the context in which the phrase is being used.
+They are learned in a data-driven manner, but most rely on small, human-annotated datasets for supervision, which can limit their broader applicability.
+We hypothesize that the equivalent knowledge can be obtained through monolingual paraphrases that have been extracted using word alignments and an intermediate language. 
+Confirming this hypothesis would allow the rapid development of compositional models in a large number of languages. 
+
+These models also impose the assumption that longer units like phrases are \textbf{compositional}, i.e., a phrase's meaning can be understood from the literal meaning of its parts. 
+However, countless examples that run contrary to the assumption exist, and handling these \textbf{non-compositional} phrases has been problematic and of long-standing interest in the community \cite{Lin1999,Sag2002}.
+(Non-) Compositionality detection as a problem is particularly relevant for downstream tasks like machine translation (MT) or information retrieval, where a literal interpretation of a non-compositional phrase could have comical (or disastrous) consequences. 
+Scoring this phenomenon can provide vital information to other language processing systems on whether a multiword unit should be treated semantically as a single entity or not, and we posit that this behavior is strongly dependent on the context in which the expression occurs. 
+%Working with the notion that there exists a compositionality continuum \cite{McCarthy2003}, several scoring methods have been proposed \cite{Reddy2011,Kiela2013,Salehi2014}, but they ignore the context in which the phrase is being used.
 
 %Many of the compositional representation and scoring models are either overly parametrized (compositional operators are word-specific), learned from human-annotated corpora, or both. 
 %These characteristics make such approaches difficult to apply in large-scale tasks with infrequently-occurring words, which is why most previous evaluations for this problem have focused on tasks with limited vocabularies and specific phrasal relationships (e.g., verb-object phrase similarity tasks), or at most on sentiment prediction and paraphrase detection. 
 
-In this work we propose a robust, scalable framework that learns compositional functions and scores phrase compositionality, which relies minimally on annotated data and can be easily integrated in real-world downstream tasks. 
+In this work we propose a robust, scalable framework that learns compositional functions and scores relative phrase (non-)compositionality.
 We make three contributions: first, a novel way to learn compositional functions for part-of-speech pairs that uses supervision from an automatically-extracted list of paraphrases (\S\ref{sec:ppdb}). 
 %Second, a new regularizer that incorporates linguistic notions of headedness while learning these functions in a linear regression setting (\S\ref{sec:concat}-\S\ref{sec:regularization}). 
-Second, a context-dependent scoring model that scores the relative compositionality of a phrase by computing the likelihood of its context given its paraphrase-learned representation (\S\ref{sec:context}). 
-And third, an evaluation of the impact of compositionality knowledge in an end-to-end machine translation setup.
-Our experiments (\S\ref{sec:experiments}) reveal that paraphrase information can learn compositional functions and phrase vectors that yield roughly equivalent correlations to human judgments compared to previous approaches, and can consistently improve translations produced by an English--Spanish translation system.\cjd{You bring up noncompositionality in the previous paragraph but it disappears when you discuss the contributions.}
+Second, a context-dependent scoring model that scores the relative compositionality of a phrase \cite{McCarthy2003} by computing the likelihood of its context given its paraphrase-learned representation (\S\ref{sec:context}). 
+And third, an evaluation of the impact of compositionality knowledge in an end-to-end MT setup.
+Our experiments (\S\ref{sec:experiments}) reveal that paraphrase information can learn compositional functions and phrase vectors that yield roughly equivalent correlations to human judgments compared to previous approaches, and can consistently improve translations produced by an English--Spanish translation system.
+%\cjd{You bring up noncompositionality in the previous paragraph but it disappears when you discuss the contributions.}
 
 \section{Learning Compositional Functions}
 \label{sec:learning}
@@ -90,13 +96,13 @@ Unlike previous work \cite[\emph{inter alia}]{Baroni2010,Socher2012,Grefenstette
 
 The Paraphrase Database \cite[PPDB]{Ganitkevich2013} is a collection of ranked monolingual paraphrases that have been extracted from word-aligned parallel corpora using the bilingual pivot method \cite{Bannard2005}. 
 The underlying assumption is that if two strings in the same language align to the same string in another language, then the strings in the original language share the same meaning. 
-Paraphrases are ranked by their word alignment scores, and in this work we use the preselected \textsc{small} portion of PPDB as our training data.\footnote{We experimented with larger portions of PPDB, but only found marginal improvement.}
+Paraphrases are ranked by their word alignment scores, and in this work we use the preselected \textsc{small} portion of PPDB as our training data.%\footnote{We experimented with larger portions of PPDB, but only found marginal improvement.}
 
 The training data is filtered to provide only two-to-one word paraphrase mappings, and the multiword portion of the paraphrase is subsequently POS-tagged.
-Table \ref{tab:pos-stats} provides a breakdown of such paraphrsaes by their POS pair type.  
+Table \ref{tab:pos-stats} provides a breakdown of such paraphrases by their POS pair type.  
 Given the lack of context when tagging, it is likely that the POS tagger yields the most probable tag for words and not the most probable tag given the context. 
 Furthermore, even the higher quality portions of PPDB yield paraphrases of ranging quality, ranging from non-trivial mappings such as \emph{young people} $\rightarrow$ \emph{youth}, to redundant ones like \emph{the ceasefire} $\rightarrow$ \emph{ceasefire}. 
-However, such data resources are more easily available than human-annotated resources (and in multiple languages too), so it is imperative that methods which learn compositional functions from such sources handle noisy supervision adequately. 
+However, PPDB-like resources are more easily available than human-annotated resources (in multiple languages too, \newcite{Ganitkevich2014}), so it is imperative that methods which learn compositional functions from such sources handle noisy supervision adequately. 
 
 \begin{table}[h!]
   \begin{center}
@@ -208,32 +214,33 @@ At the end of the procedure, unattached nodes (words) are attached at the highes
 
 After the tree is constructed, we can compute the overall phrasal representation in a bottom-up manner, guided by the labels of leaf and internal nodes.
 We note that the emphasis of this work is not to compute sentence-level representations. 
-This goal has been explored in previous work \cite{Le2014,Kalchbrenner2014}, and combining our models with methods presented therein for sentence-level representations is relatively straightforward and we leave it for future work. 
+This goal has been explored in recent research \cite{Le2014,Kalchbrenner2014}, and combining our models with methods presented therein for sentence-level representations is relatively straightforward and we leave it for future work. 
 
 \section{Scoring for Compositionality}
 \label{sec:scoring}
 
 The concatenation and tensor models compute an $N$-dimensional vector representation for a multi-word phrase by assuming the meaning of the phrase can be expressed in terms of the meaning of its constituents. 
 This assumption holds true to varying degrees; while it clearly holds for ``large amount" and breaks down for ``cloud nine", it is partially valid for phrases such as ``zebra crossing" or ``crash course". 
-Previous work has suggested that context-independent methods based on the similarity between constituent and phrase representations are useful to study the semantics of the phrases \cite{McCarthy2003,Bannard2003,Reddy2011}. 
-We hypothesize that a phrase's level of compositionality is dependent on the specific context in which it occurs, and thus propose a context-based approach (\S\ref{sec:context}) which scores compositionality by computing the likelihoods of surrounding context words given a phrase representation, and compare it with the context-independent method. 
+In line with previous work, we assume a {\bf compositionality continuum} \cite{McCarthy2003}, but further conjecture that a phrase's level of compositionality is dependent on the specific context in which it occurs,  motivating a context-based approach (\S\ref{sec:context}) which scores compositionality by computing the likelihoods of surrounding context words given a phrase representation. 
+The effect of context is directly measured through a comparison with context-independent methods from prior work \cite{Bannard2003,Reddy2011}
 
 It is important to note that most prior work on compositionality scoring assumes access to \emph{both} word and phrase vector representations (for select phrases that will be evaluated) \emph{a priori}.  
 The latter are distinct from representations that are computed from learned compositional functions as they are extracted directly from the corpus. 
 Our aim is to develop compositional models that are applicable in downstream tasks, and thus assuming pre-existing phrase vectors is unreasonable.\footnote{If these phrase representations were easy to extract from corpora, that would obviate the need to learn compositional functions.}
+For phrases, we only rely on representations computed from our learned compositional functions. 
 
 \subsection{A Type-based Model}
 \label{sec:independent}
 
 Given vector representations for the constituent words in a phrase and the phrase itself, the idea behind the type-based model is to compute similarities between the constituent word representations and the phrasal representation and average the similarities across the constituents. 
-If the contexts in which a constituent word occurs, as dictated by its vector representation, is very different from the context of the composed phrase, as dictated by cosine similarity between the representations, then the phrase is likely to be non-compositional. 
+If the contexts in which a constituent word occurs, as dictated by its vector representation, are very different from the contexts of the composed phrase, as indicated by cosine similarity between the representations, then the phrase is likely to be non-compositional. 
 Assuming unit-normalized word vectors $\bX, \bY$ and phrase vector $\bZ = \bF(\bX, \bY)$ computed from one of the learned models in \S\ref{sec:learning}:
 \begin{align}
 	g(\bX, \bY, \bZ) &= \alpha (\bX \cdot \bZ) + (1-\alpha)(\bY \cdot \bZ)
 	\label{eq:cosine-sim}
 \end{align}
 where $\alpha$ is a hyperparameter that controls the contribution of individual constituents. 
-This model leverages the average statistics computed over the training corpora, as encapsulated in the word and phrase vectors, to detect compositionality. 
+This model leverages the average statistics computed over the training corpora, as encapsulated in the word and phrase vectors, to detect compositionality, and is the primary way compositionality has been evaluated previously \cite{Reddy2011,Kiela2013}. 
 
 \subsection{Using Context}
 \label{sec:context}
@@ -302,14 +309,13 @@ For the phrase similarity task we first compare our concatenation and tensor mod
 Other additive models from previous work \cite{Mitchell2010,Zanzotto2010,Blacoe2012} that impose varying amounts of structural assumptions on the semantic interactions between word representations e.g., $f_i(x_i, y_i) = \alpha_i x_i + \beta_i y_i$ or $\bF(\bX, \bY) = \alpha\bX + \beta\bY$ are subsumed by our concatenation model. 
 The regularization strength hyperparameter for $\ell_1$ and $\ell_2$ regularization was selected using 5-fold cross-validation on the PPDB training data. 
 
-
 We evaluated the phrase compositionality models on the adjective-noun and noun-noun phrase similarity tasks compiled by \newcite{Mitchell2010}, using the same evaluation scheme as in the original work.\footnote{The evaluation set also consists of verb-object phrases constructed from dependency relations and their similarity, but such phrases generally do not fall into our phrasal definition since the words are not contiguous.}
 Spearman's $\rho$ between phrasal similarities derived from our compositional functions and the human annotators (computed individually per annotator and then averaged across all annotators) was the evaluation measure. 
 
-Figure \ref{fig:correlation} presents the correlation results for the two POS pair types as a function of the dimensionality $N$ of the representations for the concatenation models (and additive baselines), and Figure Y contains the results for the tensor models (and multiplicative baselines). 
+Figure \ref{fig:correlation} presents the correlation results for the two POS pair types as a function of the dimensionality $N$ of the representations for the concatenation models (and additive baselines) and tensor models (and multiplicative baselines). 
 The concatenation models seem more effective than the tensor models in the adjective-noun case and give roughly the same performance on the noun-noun dataset, which is consistent with previous work \cite{Guevara2011}. 
 Since the concatenation model involve fewer parameters, we use it as the compositional model for subsequent experiments. 
-The results are also consistent with state-of-the-art results on this dataset\footnote{There are differences in the corpora and experimental setup which explains the small discrepancies.} \cite{Blacoe2012}, indicating that paraphrase information is an excellent source of information for learning compositional functions. 
+The absolute results are also consistent with state-of-the-art results on this dataset\footnote{There are differences in the corpora and experimental setup which explains the small discrepancies.} \cite{Blacoe2012}, indicating that paraphrase information is an excellent source of information for learning compositional functions and is a reasonable alternative to human-annotated training sets. 
 For reference, the inter-annotator agreements are 0.52 for the adjective-noun evaluation and 0.51 for the noun-noun one. 
 The unweighted additive baseline is surprisingly very strong on the noun-noun set, so we also compare against it on subsequent experiments. 
 
@@ -317,57 +323,42 @@ The unweighted additive baseline is surprisingly very strong on the noun-noun se
 %Figure X presents the results for both POS pairs, and suggests that, at least for the phrase similarity task, this regularizer is harmful. 
 \subsection{Compositionality}
 \label{sec:compo-eval}
-
-To evaluate the compositionality-scoring models, we used the compound noun compositionality dataset introduced in \newcite{Reddy2011}.  
-This dataset consists of 2670 annotations of 90 compound-noun phrases of varying compositionality with scores provided by 30 annotators ranging from 0 to 5. 
-It also contains three to five example sentences of these phrases that were shown to the annotators, which we make use of in our context-dependent model. 
-Consistent with the original work, Spearman's $\rho$ is computed on the averaged compositionality score for a phrase across all the annotators that scored that phrase (which varies per phrase). 
-
-For the context-independent model, we select the hyperparameter $\alpha$ in Eq.~\ref{eq:cosine-sim} from the values $\{0.25, 0.5, 0.75\}$. 
-For the context-dependent model, we evaluate the concatenation model with both regularizers, and the simple additive model.
-Table \ref{tab:comp-results} presents Spearman's $\rho$ for these setups. 
-Discuss results here. 
-%Lastly, Figure Y shows how correlation is affected by the linguistic regularization strength parameter - correlation in fact improves but levels off beyond a certain point. 
-
 \begin{table}[h!]
+	\small
   \begin{center}
-    \begin{tabular}{p{0.5\linewidth}r}
+    \begin{tabular}{p{0.32\linewidth}ccc}
       \hline
-      Setup &  $\rho$ \\
+      & \multicolumn{3}{c}{$\bm{\rho}$} \\
+	  Setup & \textsc{Add} & Concat. $\ell_1$ & Concat. $\ell_2$ \\
 	  \hline
-      CosSim $\alpha=0.25$ & X \\
-	  CosSim $\alpha=0.5$ &  0.469 \\
-	  CosSim $\alpha=0.75$ & X \\
-  	  Additive  &  X \\
-      Concat $\ell_1$ &  0.575 \\
-	  Concat $\ell_2$  & 0.594 \\
+      CosSim $\alpha=0.25$ & $\mid$ & 0.43 & 0.46 \\
+	  CosSim $\alpha=0.5$ &  0.41 & 0.42 & {\bf 0.47} \\
+	  CosSim $\alpha=0.75$ & $\mid$ & 0.41 & 0.43 \\
+	  \hline 
+	  Context $l=4$ & {\bf 0.55} & {\bf 0.58} & 0.58 \\
+      Context $l=6$ & 0.54 & 0.57 & {\bf 0.59} \\
+	  Context $l=8$  & 0.53 & 0.58 & 0.59 \\
 	\end{tabular}
   \end{center}
-  \caption{Correlation between model judgments on phrase compositionality and human judgments, measured by Spearman's $\rho$.}
+  \caption{Correlation between model judgments on phrase compositionality and human judgments, measured by Spearman's $\rho$. Context-dependent and concatenation models do better.}
   \label{tab:comp-results}
 \end{table}
 
+To evaluate the compositionality-scoring models, we used the compound noun compositionality dataset introduced in \newcite{Reddy2011}.  
+This dataset consists of 2670 annotations of 90 compound-noun phrases of varying compositionality with scores ranging from 0 to 5 provided by 30 annotators. 
+It also contains three to five example sentences of these phrases that were shown to the annotators, which we make use of in our context-dependent model. 
+Consistent with the original work, Spearman's $\rho$ is computed on the averaged compositionality score for a phrase across all the annotators that scored that phrase (which varies per phrase). 
+For computing the compositional functions, we evaluate three of the best performing setups from \S\ref{sec:phrasesim-eval}: the $\ell_1$ and $\ell_2$-regularized concatenation models, and the simple additive baseline. 
+
+For the context-independent model, we select the hyperparameter $\alpha$ in Eq.~\ref{eq:cosine-sim} from the values $\{0.25, 0.5, 0.75\}$. 
+For the context-dependent model, we vary the context window size $l$ by selecting from the values $\{4, 6, 8\}$, and evaluate the concatenation model with both regularizers as well as the simple additive model.
+Table \ref{tab:comp-results} presents Spearman's $\rho$ for these setups. 
+Note that for the simple additive model with unit-normalized word vectors, the cosine similarity score is independent of the hyperparameter $\alpha$.
+In all cases, the context-dependent models outperform the context-independent ones. 
+Furthermore, the concatenation models are consistently better than the additive compositional model. 
+
 \subsection{Machine Translation}
 \label{sec:mt-eval}
-
-\begin{table}[h!]
-  \begin{center}
-    \begin{tabular}{p{0.4\linewidth}rr}
-      \hline
-	  & \multicolumn{2}{c}{\bf BLEU} \\
-      Setup &  Dev & Test \\
-	  \hline
-	  Baseline & 25.25 (X) & 26.85 (Y) \\
-      Baseline + SegOn & 25.15 (0.21) & 26.87 (0.19) \\
-	  CosSim $\alpha=X$ &  25.08 (0.03) & 26.99 (0.04) \\
-  	  Additive  &  X (X) & Y (Y) \\
-      Concat $\ell_1$ &  25 (X) & 26.85 (Y) \\
-	  Concat $\ell_2$  & 25.12 (0.22) & 27.26 (0.21) \\
-	\end{tabular}
-  \end{center}
-  \caption{MT results.}
-  \label{tab:mt-results}
-\end{table}
 
 We built an English-Spanish MT system using the \textsc{cdec} decoder \cite{Dyer2010} for the entire training pipeline (word alignments, phrase extraction, feature weight tuning, and decoding).
 Corpora from the WMT 2012 evaluation\footnote{\texttt{http://www.statmt.org/wmt12/}} was used to build the translation and language models, and for tuning (on \texttt{news-test2010}) and evaluation (on \texttt{news-test2011}), with scoring done using BLEU \cite{Papineni2002}. 
@@ -380,32 +371,51 @@ When adding our compositionality score as an additional feature, we also add two
 Therefore, an appropriate additional baseline would be to mark translation rules with these indicator functions but without the scores, akin to identifying rules with phrases in them (Baseline + SegOn). 
 
 Table \ref{tab:mt-results} presents the results of the MT evaluation, comparing the baselines to the context-independent and dependent scoring models. 
-The scores have been averaged over three runs with standard deviation is in parentheses, and all results are statistically significant ($p > 0.05$). 
-Discuss results here. 
+The scores have been averaged over three runs with standard deviation is in parentheses, and bolded results are statistically significant ($p < 0.05$) with respect to the baseline. 
+Additional discussion of results here. 
+
+\begin{table}[h!]
+  \begin{center}
+    \begin{tabular}{p{0.4\linewidth}rr}
+      \hline
+	  & \multicolumn{2}{c}{\bf BLEU} \\
+      Setup &  \multicolumn{1}{c}{Dev} & \multicolumn{1}{c}{Test} \\
+	  \hline
+	  Baseline & 25.23 (0.05) & 26.89 (0.13) \\
+      Baseline + SegOn & 25.15 (0.21) & 26.87 (0.19) \\
+	  $\ell_2$ CosSim $\alpha=0.5$ &  25.08 (0.03) & {\bf26.99} (0.04) \\
+  	  \textsc{Add} $l=4$ &  24.85 (0.12) & 26.82 (0.05) \\
+      $\ell_1$ $l=4$ &  25.02 (0.02) & 26.89 (0.14) \\
+	  $\ell_2$  $l=6$ & 25.12 (0.22) & {\bf 27.26} (0.21) \\
+	\end{tabular}
+  \end{center}
+  \caption{MT results. Discuss more here.}
+  \label{tab:mt-results}
+\end{table}
 
 \section{Related Work}
 
 There has been a large amount of recent work on compositional models that operate on a variety of vector representations. 
 With some exceptions \cite{Mitchell2008,Mitchell2010}, all of these approaches are lexicalized i.e., parameters (generally in the form of vectors, matrices, or tensors) for \emph{specific} words are learned, which works well for frequently occurring words but breaks down when dealing with compositions of arbitrary word sequences containing infrequent words. 
-The functions are either learned with a neural network architecture \cite[\emph{inter alia}]{Socher2013}, which generally require a supervised task, or using linear regression \cite{Baroni2010,Zanzotto2010}, where although supervision is extracted from a corpus, the directly-extracted phrase representations are also required for supervision.
+The functions are either learned with a neural network architecture \cite[\emph{inter alia}]{Socher2013}, which generally require a supervised task, or using linear regression \cite{Baroni2010,Zanzotto2010}, where the directly-extracted phrase representations are also required for supervision.
 We obtain this information through many-to-one PPDB mappings. 
 Many of these models also require additional syntactic \cite{Socher2012} or semantic \cite{Hermann2013,Grefenstette2013} resources; on the other hand, our proposed approach only requires a shallow syntactic parse in the form of POS tags. 
 Furthermore, with the exception of \newcite{Zanzotto2010}, who propose a way to extract compositional function training examples from a dictionary, all of these models require human-annotated data to work, although recent efforts to make these models more practical \cite{Paperno2014} attempt to reduce the statistically complex and overly-parametrized nature of the models.  
 
-Most models that score the compositionality of phrases do so in a context-independent manner. 
+Most models that score the relative (non-) compositionality of phrases do so in a context-independent manner. 
 A central idea is to replace phrase constituents with semantically-related words and compute the similarity of the new phrase to the original \cite{Kiela2013,Salehi2014} or make use of a variety of lexical association measures \cite{Lin1999,Pecina2006}. 
 \newcite{Sporleder2009} however, do make use of the context in a token-based approach, where the context in which a phrase occurs as well as the phrase itself is modeled as a lexical chain, and the cohesion of the chain is measured as an indicator of a phrase's compositionality. 
 To compute cohesion, the authors use a web search engine-based measure, whereas we use a probabilistic model of context given a phrase representation, where the probability is parametrized in terms of the logistic function.  
 
 In the context of MT, \newcite{Zhang2008b} present a Bayesian model that learns non-compositional phrases from a synchronous parse tree of a sentence pair.
-However, the primary aim of their work is for phrase extraction in MT, and the non-compositional constraints are only applied to make the space of phrase pairs more tractable when bootstrapping their phrasal inversion transduction grammar (ITG) parser from their word-based ITG parser. 
+However, the primary aim of their work is for phrase extraction in MT, and the non-compositional constraints are only applied to make the space of phrase pairs more tractable when bootstrapping their phrasal parser from their word-based parser. 
 In contrast, we score every phrase that is extracted using the standard phrase extraction heuristics \cite{Chiang2007}, allowing the decoder to make the final decision on the impact of compositionality scores in translation. 
 Thus, our work is more similar to \newcite{Xiong2010}, who propose maximum entropy classifiers that mark positions between words in a sentence as being a phrase boundary or not, and integrate these scores as additional features in the translation system.  
 
 \section{Conclusion}
 
-In this work, we presented two new sources of information for compositionality modeling and scoring. 
-For modeling, we showed that the compositional representations learned using paraphrase information performs as well on a phrase similarity task as the average human annotator.
+In this work, we presented two new sources of information for compositionality modeling and scoring, paraphrase information and context. 
+For modeling, we showed that the compositional representations learned using paraphrases performs as well on a phrase similarity task as the average human annotator.
 For scoring, the importance of context was shown through the comparison of context-independent and dependent models. 
 Improvements by the context-dependent model on an extrinsic machine translation task corroborate the importance of context. 
 The emphasis of this work was on models that are easily learnable and scalable, and we hope that it encourages further research in making compositional semantic approaches applicable in downstream tasks. 
