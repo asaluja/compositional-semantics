@@ -40,12 +40,13 @@ class TrainingExtractor:
         except ValueError:
             return False
 
-    def __init__(self, database_loc, selector = "all", top_combiners = 3, filter_number = True): 
+    def __init__(self, database_loc, selector = "all", top_combiners = 3, POS = False, filter_number = True): 
         self.database_loc = database_loc
         self.selector = selector
         self.top_combiners = top_combiners
         self.filter_number = filter_number
         self.training_examples = {}
+        self.pos_provided = POS
 
     def extract_examples(self):
         training_tuples = set()
@@ -58,6 +59,8 @@ class TrainingExtractor:
                 if self.filter_number:
                     isNumber = False
                     for token in many_phrase.split():
+                        if self.pos_provided:
+                            token = token.split('#')[0]
                         if self.is_number(token):
                             isNumber = True
                     if not isNumber:
@@ -68,16 +71,23 @@ class TrainingExtractor:
         self.training_examples = {} #reset training examples
         for element in training_tuples: #now, tag the resulting data
             words = element[1].split()
-            pos_tags = [word_pos[1] for word_pos in tagger.tag(words)]
+            words_only = ""
+            if self.pos_provided:
+                words_only = ' '.join([word_pos.split('#')[0] for word_pos in words])
+            pos_tags = [word_pos.split('#')[1] for word_pos in words] if self.pos_provided else [word_pos[1] for word_pos in tagger.tag(words)]            
+            #pos_tags = [word_pos[1] for word_pos in tagger.tag(words)]
             collapsed_pos = []
             for pos in pos_tags: #cluster certain pos tags together
                 new_pos = collapsePOS(pos)
                 collapsed_pos.append(new_pos)
             key = ' '.join(collapsed_pos)
             examples = self.training_examples[key] if key in self.training_examples else []
-            examples.append(' '.join([element[0], element[1]]))
+            if self.pos_provided:
+                examples.append(' '.join([element[0], words_only]))
+            else:
+                examples.append(' '.join([element[0], element[1]]))
             self.training_examples[key] = examples
-        print "PPDB training data tagged and sorted"
+        sys.stderr.write("PPDB training data tagged and sorted\n")
         db_fh.close()
 
     def print_examples(self):
@@ -137,14 +147,13 @@ class TrainingExtractor:
             return examples
 
 def main():
-    (opts, args) = getopt.getopt(sys.argv[1:], 'aA:nv')
+    (opts, args) = getopt.getopt(sys.argv[1:], 'aA:npv')
     selector = None
+    POS = False
     top_combiners = -1
     for opt in opts:
         if opt[0] == '-a': #adjective-noun
             selector = "adj"
-        elif opt[0] == '-d': #determiner
-            selector = "det"
         elif opt[0] == '-n': #noun-noun
             selector = "noun"
         elif opt[0] == '-v': #verb-noun
@@ -152,11 +161,13 @@ def main():
         elif opt[0] == '-A': #all
             selector = "all"
             top_combiners = int(opt[1])
+        elif opt[0] == '-p': 
+            POS = True
     if selector is None:
         sys.stderr.write("Error: need to provide one of the following flags to determine what word pairs to extract: -a (adjective-noun), -n (noun-noun), -v (verb-noun), or -A (all, with argument on number of POS combiners\n")
         sys.exit()
     dbloc = args[0]
-    extractor = TrainingExtractor(dbloc, selector, top_combiners)
+    extractor = TrainingExtractor(dbloc, selector, top_combiners, POS)
     extractor.extract_examples()
     extractor.print_examples()
 

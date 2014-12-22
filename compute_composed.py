@@ -34,16 +34,19 @@ class PhraseTree:
             right.parent = self
 
 class CompoModel:
-    def __init__(self, params_file, concat = False, normalize = True, headed = False, rightBranch = False):
+    def __init__(self, params_file, concat = False, normalize = True, headed = False, rightBranch = False, multModel = False, addModel = False):
         self.wordVecs = {} #key is word, value is vector rep of word
         self.contextVecs = {}
         self.phraseVecs = {} #key is (phrase, pos_pair) tuple, value is vector rep of (phrase, pos_pair)
+        #if not multModel and not addModel:
         self.parameters = cPickle.load(open(params_file, 'rb')) #dictionary; value is a tuple of parameters-intercept
         self.concat = concat
         self.headed = headed
         self.normalize = normalize
         self.dimensions = self.parameters["X X"][0].shape[0]
         self.rightBranch = rightBranch
+        self.multModel = multModel
+        self.addModel = addModel
 
     def readVecFile(self, filename, vecType = "word"):
         fh = open(filename, 'r')
@@ -151,8 +154,14 @@ class CompoModel:
         if (phrase, pos_seq) in self.phraseVecs:
             return self.phraseVecs[(phrase, pos_seq)]
         else:
-            phraseTree = self.constructPhraseTree(phrase, pos_seq)            
-            result = self.computePhraseTreeRep(phraseTree)
+            result = None
+            if self.addModel:
+                result = self.computeSimpleRep(phrase, "add")
+            elif self.multModel:
+                result = self.computeSimpleRep(phrase, "mult")
+            else:
+                phraseTree = self.constructPhraseTree(phrase, pos_seq)            
+                result = self.computePhraseTreeRep(phraseTree)
             self.phraseVecs[(phrase, pos_seq)] = result
             return result
 
@@ -201,15 +210,21 @@ class CompoModel:
         for pos_pair in self.parameters:
             pos_file = '_'.join(pos_pair.split())
             outFH = mpl.backends.backend_pdf.PdfPages(outFile_root + ".%s.pdf"%pos_file)
-            parameter, intercept = self.parameters[pos_pair]            
+            parameter, intercept = self.parameters[pos_pair]
+            print "POS Pair: %s"%pos_pair
             if self.concat: 
-                left_mat = -parameter[:,:self.dimensions]
-                left_mat[left_mat==0] = np.nan                
-                right_mat = -parameter[:,self.dimensions:]
-                right_mat[right_mat==0] = np.nan                
+                #left_mat = -parameter[:,:self.dimensions]
+                left_mat = parameter[:,:self.dimensions]
+                print "Left Mat max: %.3f; Min: %.3f"%(np.max(left_mat), np.min(left_mat))
+                left_mat[left_mat==0] = np.nan    
+                #right_mat = -parameter[:,self.dimensions:]
+                right_mat = parameter[:,self.dimensions:]
+                print "Right Mat max: %.3f; Min: %.3f"%(np.max(right_mat), np.min(right_mat))
+                right_mat[right_mat==0] = np.nan
                 f, axes_tuples = plt.subplots(1, 1)
                 ax1 = axes_tuples
-                cmap = plt.cm.get_cmap('RdBu')
+                #cmap = plt.cm.get_cmap('RdBu')
+                cmap = plt.cm.get_cmap('binary')
                 heatmap = np.ma.array(left_mat, mask=np.isnan(left_mat))
                 cmap.set_bad('w', 1.)
                 ax1.pcolor(heatmap, cmap=cmap, alpha=0.8)
@@ -218,7 +233,8 @@ class CompoModel:
                 outFH.savefig()
                 f, axes_tuples = plt.subplots(1,1)
                 ax1 = axes_tuples
-                cmap = plt.cm.get_cmap('RdBu')
+                #cmap = plt.cm.get_cmap('RdBu')
+                cmap = plt.cm.get_cmap('binary')
                 heatmap = np.ma.array(right_mat, mask=np.isnan(right_mat))
                 cmap.set_bad('w', 1.)
                 ax1.pcolor(heatmap, cmap=cmap, alpha=0.8)

@@ -34,11 +34,17 @@ def readHumanSimilarities(selector):
                 humanDict[elements[1]] = float(elements[2])
         elif selector == "NonCompNounNoun":
             elements = line.strip().split('\t')
+            remainder = elements[1].split()
+            phrase = ' '.join([word_pos.split('-')[0] for word_pos in elements[0].split()])
+            if remainder[4] != "Cpd_mean":
+                humanDict[phrase] = float(remainder[4])
+            '''
             phrase = ' '.join(elements[0].split('_'))
             scores = humanDict[elements[1]] if elements[1] in humanDict else []
             if elements[3] == "accepted":
                 scores.append((phrase, int(elements[4]))) #for each participant, store phrase and score
                 humanDict[elements[1]] = scores #humanDict is indexed by participantID
+            '''
     return humanDict
 
 def readComputedScores(filename):
@@ -49,7 +55,7 @@ def readComputedScores(filename):
         computed_scores[phrase] = float(score)
     return computed_scores
 
-def computeSimilarityCorrelation(humanSims, model, mult, extreme, divergent, selector):
+def computeSimilarityCorrelation(humanSims, model, mult, add, extreme, divergent, selector):
     pos_pair = "JJ NN" if selector == "adjectivenouns" else "NN NN"
     rhoVec = []
     numRatings = []
@@ -60,8 +66,10 @@ def computeSimilarityCorrelation(humanSims, model, mult, extreme, divergent, sel
         for phrase1, phrase2, sim in humanSims[subject]:
             phrase_pairs.append((phrase1, phrase2))
             if model.checkVocab(phrase1) and model.checkVocab(phrase2): 
-                phraseRep1 = model.computeSimpleRep(phrase1, "multiply") if mult else model.computeComposedRep(phrase1, pos_pair)
-                phraseRep2 = model.computeSimpleRep(phrase2, "multiply") if mult else model.computeComposedRep(phrase2, pos_pair)                
+                #phraseRep1 = model.computeSimpleRep(phrase1, "multiply") if mult else model.computeComposedRep(phrase1, pos_pair)
+                phraseRep1 = model.computeSimpleRep(phrase1, "add") if add else model.computeComposedRep(phrase1, pos_pair)
+                #phraseRep2 = model.computeSimpleRep(phrase2, "multiply") if mult else model.computeComposedRep(phrase2, pos_pair)                
+                phraseRep2 = model.computeSimpleRep(phrase2, "add") if add else model.computeComposedRep(phrase2, pos_pair)                
                 phraseSim = np.divide(np.dot(phraseRep1, phraseRep2), np.linalg.norm(phraseRep1) * np.linalg.norm(phraseRep2))
                 if extreme:
                     if sim < 3 or sim > 5:
@@ -93,7 +101,8 @@ def computeSimilarityCorrelation(humanSims, model, mult, extreme, divergent, sel
     print "Average number of ratings across %d subjects: %.3f"%(len(humanSims), float(sum(numRatings)) / len(numRatings))
 
 def computeNonCompCorrelation(humanSims, scores, selector):    
-    if selector == "NonCompAdjNoun":
+    if True:
+    #if selector == "NonCompAdjNoun":
         human_scores = []
         learned_scores = []
         for phrase in scores:
@@ -102,29 +111,35 @@ def computeNonCompCorrelation(humanSims, scores, selector):
                 human_scores.append(humanSims[phrase])
         rho = stats.spearmanr(human_scores, learned_scores)
         print "Spearman rho: %.3f; over %d examples"%(rho[0], len(human_scores))
+        r = stats.pearsonr(human_scores, learned_scores)
+        print "Pearson R: %.3f, over %d examples"%(r[0], len(human_scores))
     else: #for noun-noun, it's a bit more complicated
         rhoVec = []
+        rVec = []
         for subject in humanSims:
             human_scores = []
             learned_scores = []
-            scores_only = [phrase_score[1] for phrase_score in humanSims[subject]]
-            allSame = len(set(scores_only)) <= 1
+            for phrase, score in humanSims[subject]: 
+                if phrase in scores:
+                    human_scores.append(score)
+                    learned_scores.append(scores[phrase])
+            allSame = len(set(human_scores)) <= 1 or len(set(learned_scores)) <= 1
             if not allSame:
-                for phrase, score in humanSims[subject]: 
-                    if phrase in scores:
-                        human_scores.append(score)
-                        learned_scores.append(scores[phrase])
                 rho = stats.spearmanr(human_scores, learned_scores)
                 rhoVec.append(rho[0])
-        print "Average rho across %d subjects: %.3f"%(len(rhoVec), sum(rhoVec) / len(rhoVec))
+                r = stats.pearsonr(human_scores, learned_scores)
+                rVec.append(r[0])
+        print "Average Spearman rho across %d subjects: %.3f"%(len(rhoVec), sum(rhoVec) / len(rhoVec))
+        print "Average Pearson R across %d subjects: %.3f"%(len(rVec), sum(rVec) / len(rVec))
 
 def main():
-    (opts, args) = getopt.getopt(sys.argv[1:], 'cdejJmnN')
+    (opts, args) = getopt.getopt(sys.argv[1:], 'acdejJmnN')
     selector = ""
     mult = False
     extreme = False
     concat = False
     divergent = False
+    add = False
     for opt in opts:
         if opt[0] == '-n':
             selector = "compoundnouns"
@@ -136,6 +151,8 @@ def main():
             selector = "NonCompNounNoun"
         elif opt[0] == '-m':
             mult = True
+        elif opt[0] == '-a':
+            add = True
         elif opt[0] == '-c':
             concat = True
         elif opt[0] == '-d':
@@ -147,7 +164,7 @@ def main():
     if computeSimCorr:
         model = CompoModel(args[1], concat, True)
         model.readVecFile(args[0])
-        computeSimilarityCorrelation(humanSims, model, mult, extreme, divergent, selector)
+        computeSimilarityCorrelation(humanSims, model, mult, add, extreme, divergent, selector)
     else:
         scores = readComputedScores(args[1])
         computeNonCompCorrelation(humanSims, scores, selector) 
