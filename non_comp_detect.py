@@ -20,6 +20,10 @@ import multiprocessing as mp
 import extract_training
 from compute_composed import *
 
+'''
+Used to hold the most frequent words (as determined by an external
+tool, e.g., SRILM or inbuilt unix tools) and for stop-word filtering. 
+'''
 class Unigrams:
     def __init__(self, filename, numStop):
         fh = open(filename, 'rb')
@@ -259,10 +263,15 @@ def printPOSInfo(pos_scores_dist):
             pos_coeff, pos_pval = sp.stats.stats.pearsonr(pos_scores, pos_distances)
             print "%s\t%d\t%.3f\t%.3f"%(pos_pair, len(pos_scores), pos_coeff, sum(pos_distances) / len(pos_distances))
 
+'''
+for MT integration, so that the non-compositionality scores can be used downstream
+in MT decoding. 
+To Do: add optionality handling for baseline generation (no SegScore, just SegOn or NoSeg)
+'''
 def writePerSentenceGrammar(loc_in, loc_out, phrase_tuples, printComposed, averaging, perplexity, binning, numBins, featNT):    
     sentDict = {}
     vecSize = len(phrase_tuples[0][3])
-    for phrase, phrase_pos, context, phraseRep, score, sentNum in phrase_tuples:
+    for phrase, phrase_pos, context, phraseRep, score, sentNum in phrase_tuples: #input data to write out is in these tuples; we need to reformat
         phraseDict = sentDict[sentNum] if sentNum in sentDict else {}
         if len(context) > 0:
             if perplexity:
@@ -273,19 +282,19 @@ def writePerSentenceGrammar(loc_in, loc_out, phrase_tuples, printComposed, avera
         phraseDict[phrase] = score if not printComposed else (score, phraseRep) 
         sentDict[sentNum] = phraseDict
 
-    if binning != "":
+    if binning != "": #binning the values if asked
         for sentNum in sentDict:
             phraseDict = sentDict[sentNum]
             phrase_scores = phraseDict.items()
             scores = [key_val[1] for key_val in phrase_scores] if not printComposed else [key_val[1][1] for key_val in phrase_scores]
             bins = []
-            if binning == "width": #compute the bin start and end values
+            if binning == "width": #compute the bin start and end values using numpy histogram
                 histo, bins = np.histogram(scores, numBins)
-            else: #can only be size since binning != ""
+            else: #can only be size since binning != ""; figure out bin widths based on equal size (elements per bin)
                 numElementsPerBin = float(len(scores)) / numBins
                 probs = np.array(range(numBins+1))*numElementsPerBin
-                probs /= float(len(scores))
-                bins = sp.stats.mstats.mquantiles(scores, probs)
+                probs /= float(len(scores)) #do this based on probabilities;
+                bins = sp.stats.mstats.mquantiles(scores, probs) 
             binned_scores = np.digitize(scores, bins)
             for idx, key in enumerate(phrase_scores): #bin the values
                 phrase = key[0]
@@ -299,7 +308,7 @@ def writePerSentenceGrammar(loc_in, loc_out, phrase_tuples, printComposed, avera
     for line_counter in xrange(numSentences+1):
         grammar_fh = gzip.open(loc_in+"grammar.%d.gz"%line_counter, 'rb')
         out_fh = gzip.open(loc_out+"grammar.%d.gz"%line_counter, 'w')
-        if line_counter not in sentDict: #to handle sentences where we do not extract rule with any phrase longer than length 1
+        if line_counter not in sentDict: #to handle sentences where we do not extract rule with any phrase longer than length 1 - just copy and paste the original rule with NoSeg feature on
             for rule in grammar_fh: 
                 elements = rule.strip().split(' ||| ')
                 features = elements[3]
@@ -327,9 +336,9 @@ def writePerSentenceGrammar(loc_in, loc_out, phrase_tuples, printComposed, avera
                             if printComposed:
                                 composedRep += phraseDict[subphrase.strip()][1]
                     if counter > 0: #valid segmentation score
-                        features += " SegScore=%.3f SegOn=1"%(score / counter) #average over scores for each phrase in rule                        
+                        features += " SegScore=%.3f SegOn=1"%(score / counter) #average over scores for each phrase in rule 
                         #features += " SegOn=1" #for baseline purposes
-                        if printComposed:
+                        if printComposed: #for printing the composed representation as a feature
                             composedRep = np.divide(composedRep, counter)
                             for featName, featVal in enumerate(composedRep):
                                 features += " Dimension%d=%.3f"%(featName, featVal)
@@ -351,6 +360,11 @@ def writePerSentenceGrammar(loc_in, loc_out, phrase_tuples, printComposed, avera
             grammar_fh.close()
             out_fh.close()
 
+'''
+similar function to above, except here we directly write out the non-compositionality scores
+of certain noun-noun and adjective-noun pairs given a context (all the preprocessing has been
+done beforehand).  This is for evaluation and comparison with human scorers. 
+'''
 def writeNonCompScores(phrase_tuples, averaging, perplexity, binning, numBins):
     phraseDict = {}
     for phrase, phrase_pos, context, phraseRep, score, sentNum in phrase_tuples: #restructure into more suitable output
@@ -390,7 +404,7 @@ def writeNonCompScores(phrase_tuples, averaging, perplexity, binning, numBins):
             binned_phraseDict[phrase] = scores_per_phrase
         phraseDict = binned_phraseDict
 
-    for phrase in phraseDict:
+    for phrase in phraseDict: #print out all the phrase sin phrasedict
         scores = phraseDict[phrase]
         averageScore = sum(scores) / len(scores)
         print "%s ||| %.3f"%(phrase, averageScore)

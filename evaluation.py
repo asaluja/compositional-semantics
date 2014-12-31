@@ -16,6 +16,10 @@ import numpy as np
 import scipy.stats as stats
 from compute_composed import *
 
+'''
+different human evaluation files are formatted in different ways, and this function
+goes through the various formats based on the 'selector' and reads in the appropriate scores. 
+'''
 def readHumanSimilarities(selector):
     humanDict = {}
     for line in sys.stdin:
@@ -47,6 +51,9 @@ def readHumanSimilarities(selector):
             '''
     return humanDict
 
+'''
+pre-computed or pre-averaged scores
+'''
 def readComputedScores(filename):
     computed_scores = {}
     fh = open(filename, 'rb')
@@ -55,6 +62,12 @@ def readComputedScores(filename):
         computed_scores[phrase] = float(score)
     return computed_scores
 
+'''
+computes the correlation with human judgements of similarity. 
+this function handles computing the representations, and then computing the correlations
+at the end. 
+to do: add additional flexibility for add/mult distinction
+'''
 def computeSimilarityCorrelation(humanSims, model, mult, add, extreme, divergent, selector):
     pos_pair = "JJ NN" if selector == "adjectivenouns" else "NN NN"
     rhoVec = []
@@ -100,6 +113,9 @@ def computeSimilarityCorrelation(humanSims, model, mult, add, extreme, divergent
     print "Average rho across %d subjects: %.3f"%(len(humanSims), sum(rhoVec) / len(humanSims))
     print "Average number of ratings across %d subjects: %.3f"%(len(humanSims), float(sum(numRatings)) / len(numRatings))
 
+'''
+same function as above, except computes correlation with non-compositionality judgements. 
+'''
 def computeNonCompCorrelation(humanSims, scores, selector):    
     if True:
     #if selector == "NonCompAdjNoun":

@@ -17,6 +17,9 @@ import multiprocessing as mp
 import sklearn.linear_model as regressor
 from extract_training import *
 
+'''
+read in word representations from text file
+'''
 def readVecFile(filename, normalize):
     fh = open(filename, 'r')
     repDict = {}
@@ -26,6 +29,9 @@ def readVecFile(filename, normalize):
         repDict[word] = np.divide(rep, np.linalg.norm(rep)) if normalize else rep
     return repDict
 
+'''
+from PPDB, add the training example if it meets certain criteria
+'''
 def addTrainingExample(wordVecs, filterDup, training_data, training_stats, key, output, input_left, input_right):
     training_pos = training_data[key] if key in training_data else []
     num_train = training_stats[key] if key in training_stats else [0,0]
@@ -44,6 +50,9 @@ def addTrainingExample(wordVecs, filterDup, training_data, training_stats, key, 
     else:
         sys.stderr.write("Could not find one of the following words in the vocabulary: %s, %s, or %s\n"%(output, input_left, input_right))
 
+'''
+function that goes through PPDB and assembles the training data by calling addTrainingExample and doing some pre and post-processing
+'''
 def createTraining(dbloc, wordVecs, filterDup):
     print "Extracting training examples directly from PPDB"
     extractor = TrainingExtractor(dbloc, "all")
@@ -59,7 +68,6 @@ def createTraining(dbloc, wordVecs, filterDup):
         print "POS Pair %s: out of %d training examples, valid input-output triples exist for %d examples"%(key, training_stats[key][0], training_stats[key][1])
     return training_data
 
-#format of this file is slightly different than before
 def readTrainingFromFile(trainFile, wordVecs, filterDup):
     print "Reading training examples from file"
     training_data = {}
@@ -76,7 +84,12 @@ def readTrainingFromFile(trainFile, wordVecs, filterDup):
     train_fh.close()
     return training_data
 
-
+'''
+distributed implementation of multivariate regression by doing the elements/coordinates independently.
+There is something to be lost by this in that R^2 is always less than the multivariate solution,
+but this difference is usually minimal and we can take advantage of multiple cores.  Only works
+for particular types of regressions: lasso, ridge, lars, and elastic
+'''
 def regressorParallel(data, labels, start, end, regStr, out_q):
     reg = None
     if regStr == "lasso":
@@ -97,6 +110,9 @@ def regressorParallel(data, labels, start, end, regStr, out_q):
         coefficients.append((idx, R2, reg.coef_, reg.intercept_))
     out_q.put(coefficients)
 
+'''
+standard multivariate regression where it is done together
+'''
 def regressorMultivariate(data, labels, regStr):
     reg = None
     if regStr == "lasso":
@@ -114,6 +130,11 @@ def regressorMultivariate(data, labels, regStr):
     print "Number of non-zero values in coefficients: %d"%((reg.coef_ != 0).sum())
     return (reg.coef_, reg.intercept_)
 
+'''
+experimental regression function where the prior is linguistically motivated, so
+we impose some kind of structural sparsity to the parameter matrix. 
+Only works for concatenative models
+'''
 def regressorLinguisticPrior(X, y, pos_pair, alpha, dim):
     numExamples = X.shape[0]
     print pos_pair #make change: only do this for certain combinations
@@ -128,6 +149,9 @@ def regressorLinguisticPrior(X, y, pos_pair, alpha, dim):
     intercept = W[0,:]
     return (W[1:,:].T, intercept)
 
+'''
+wrapper function for learning parameters
+'''
 def learnParameters(training_data, pos_pair, numProc, diagonal, concat, reg, multivariate, alpha):
     numSamples = len(training_data)
     dim = len(training_data[0][0])
@@ -137,7 +161,7 @@ def learnParameters(training_data, pos_pair, numProc, diagonal, concat, reg, mul
     print "Number of training examples: %d; Number of regression problems: %d; Number of covariates: %d"%(numSamples, dim, P)
     y = np.zeros((numSamples, dim))
     X = np.zeros((numSamples, P))
-    for idx, triple in enumerate(training_data): 
+    for idx, triple in enumerate(training_data): #assemble the data in y and X
         y[idx,:] = triple[0].transpose()
         if concat:
             X[idx,:] = np.concatenate((triple[1], triple[2]), axis=1)
@@ -152,7 +176,7 @@ def learnParameters(training_data, pos_pair, numProc, diagonal, concat, reg, mul
         if alpha >= 0:
             coeff, intercept = regressorLinguisticPrior(X, y, pos_pair, alpha, dim)
         elif reg == "multitask":
-            lasso = regressor.MultiTaskLasso(alpha=5e-5)        
+            lasso = regressor.MultiTaskLasso(alpha=5e-5)  #call multitask lasso directly here
             print "Fixing alpha to 5e-5"
             lasso.fit(X, y)
             print "Multitask R^2: %.3f"%(lasso.score(X, y))
@@ -160,12 +184,12 @@ def learnParameters(training_data, pos_pair, numProc, diagonal, concat, reg, mul
             intercept = lasso.intercept_
         else: #can only be multivariate
             coeff, intercept = regressorMultivariate(X, y, reg)
-        for idx in range(0, dim):
+        for idx in range(0, dim): #re-assemble parameters in the right structure
             if concat:
                 parameter[idx,:] = coeff[idx,:]
             else:
                 parameter[idx,:,:] = coeff[idx,:].reshape((dim, dim)) if not diagonal else np.diag(coeff[idx,:])
-    else:
+    else: #for parallel/distributed estimation
         out_q = mp.Queue()
         procs = []
         chunksize = int(math.floor(dim / float(numProc)))
