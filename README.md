@@ -10,9 +10,9 @@ Inputs: word vectors, context vectors, PPDB
 
 1. In order to make things faster, it is better to run the TrainingExtractor module *a priori* on PPDB: 
 
-```
-python extract_training.py -A X ppdb_loc > sorted_ppdb_examples
-```
+   ```
+   python extract_training.py -A X ppdb_loc > sorted_ppdb_examples
+   ```
 
   The `-A X` flag indicates we should output all POS pairs: specific pairs for the top X, and the rest in a generic 'X X' pair type. Other options available are:
   - `-a`: adjective-noun
@@ -23,9 +23,9 @@ python extract_training.py -A X ppdb_loc > sorted_ppdb_examples
 
 2. Run the learning module to learn and output the compositional functions:
 
-```
-python learning.py wordVecs sorted_ppdb_examples parameters
-```
+   ```
+   python learning.py wordVecs sorted_ppdb_examples parameters
+   ```
 
   Flags:
   - `-n`: normalize word vectors to be unit norm (recommended)
@@ -40,9 +40,9 @@ python learning.py wordVecs sorted_ppdb_examples parameters
 
 3. If you want to evaluate the learned representations against the human evaluations (in the Mitchell & Lapata 2010 study), you can run the evaluation module:
 
-```
-python evaluation.py wordVecs parameters < mitchell_lapata_scores
-```
+   ```
+   python evaluation.py wordVecs parameters < mitchell_lapata_scores
+   ```
 
   Flags:
   - `-j`: adjective-noun phrase similarity evaluation
@@ -55,13 +55,13 @@ python evaluation.py wordVecs parameters < mitchell_lapata_scores
   - `-c`: concatenative model. If the parameters have been learned using a concatenative model, then this flag is required. 
   - `-e`: compute Spearman's correlation scores only with the most extreme similarities on the 1-7 scale
 
-By default, input vectors are assumed normalized. 
+  By default, input vectors are assumed normalized. 
 
 4. If you want to get non-compositionality scores for phrases using these parameters:
 
-```
-python non_comp_detect.py wordVecs contextVecs parameters unigram_counts per_sentence_grammar_loc_in < dev_corpus_with_pos_tags
-```
+   ```
+   python non_comp_detect.py wordVecs contextVecs parameters unigram_counts per_sentence_grammar_loc_in < dev_corpus_with_pos_tags
+   ```
 
   Flags:
   - `-c`: concatenative model. If the parameters have been learned using a concatenative model, then this flag is required. 
@@ -86,7 +86,7 @@ python non_comp_detect.py wordVecs contextVecs parameters unigram_counts per_sen
   - `-A`: evaluate non-compositionality using simple pointwise additive compositional representations. 
   - `-M`: evaluate non-compositionality using simple pointwise multiplicative compositional representations. 
 
-  1. Note that in order to do non-compositionality detection, an evaluation set must be provided with the POS tags (separated by '#').  In order to do this, run the following command:
+5. Note that in order to do non-compositionality detection, an evaluation set must be provided with the POS tags (separated by '#').  In order to do this, run the following command:
 
   ```
   java -mx5000m -cp $POSTAGGER/stanford-postagger.jar edu.stanford.nlp.tagger.maxent.MaxentTagger -model $POSTAGGER/models/english-bidirectional-distsim.tagger -textFile eval.lc-tok -outputFormat slashTags -tagSeparator \# -tokenize false > eval.lc-tok.pos
