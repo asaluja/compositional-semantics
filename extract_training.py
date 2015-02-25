@@ -15,6 +15,9 @@ interfacing with the class, e.g., via learning.py
 import sys, commands, string, getopt
 from nltk.tag.stanford import POSTagger
 
+'''
+treat the various types of adjectives, nouns, verbs, and adverbs as one. 
+'''
 def collapsePOS(pos):
     new_pos = ""
     if pos == "JJR" or pos == "JJS":
@@ -29,6 +32,9 @@ def collapsePOS(pos):
         new_pos = pos
     return new_pos
 
+'''
+to do: take the tagger_loc and tagger_model locations as args from somewhere convenient
+'''
 class TrainingExtractor:
     TAGGER_LOC = '/opt/tools/stanford-postagger-full-2013-11-12/stanford-postagger.jar'
     TAGGER_MODEL = '/opt/tools/stanford-postagger-full-2013-11-12/models/wsj-0-18-bidirectional-nodistsim.tagger'
@@ -40,13 +46,18 @@ class TrainingExtractor:
         except ValueError:
             return False
 
-    def __init__(self, database_loc, selector = "all", top_combiners = 3, filter_number = True): 
+    def __init__(self, database_loc, selector = "all", top_combiners = 3, POS = False, filter_number = True): 
         self.database_loc = database_loc
         self.selector = selector
         self.top_combiners = top_combiners
         self.filter_number = filter_number
         self.training_examples = {}
+        self.pos_provided = POS
 
+    '''
+    goes through PPDB and extracts data and does particular preprocessing
+    to do: look at paraphrases of length > 2
+    '''
     def extract_examples(self):
         training_tuples = set()
         db_fh = open(self.database_loc, 'rb')
@@ -55,9 +66,11 @@ class TrainingExtractor:
             if len(elements[1].split()) == 2 or len(elements[2].split()) == 2: #only look at 2-to-1 or 1-to-2 paraphrases
                 many_phrase = elements[1] if len(elements[1].split()) == 2 else elements[2]
                 one_phrase = elements[1] if len(elements[1].split()) == 1 else elements[2]
-                if self.filter_number:
+                if self.filter_number: #filter numbers, these are useless
                     isNumber = False
                     for token in many_phrase.split():
+                        if self.pos_provided:
+                            token = token.split('#')[0]
                         if self.is_number(token):
                             isNumber = True
                     if not isNumber:
@@ -68,18 +81,27 @@ class TrainingExtractor:
         self.training_examples = {} #reset training examples
         for element in training_tuples: #now, tag the resulting data
             words = element[1].split()
-            pos_tags = [word_pos[1] for word_pos in tagger.tag(words)]
+            words_only = ""
+            if self.pos_provided: #if pos tags provided externally can just merge them here otherwise call the tagger
+                words_only = ' '.join([word_pos.split('#')[0] for word_pos in words])
+            pos_tags = [word_pos.split('#')[1] for word_pos in words] if self.pos_provided else [word_pos[1] for word_pos in tagger.tag(words)]            
             collapsed_pos = []
             for pos in pos_tags: #cluster certain pos tags together
                 new_pos = collapsePOS(pos)
                 collapsed_pos.append(new_pos)
             key = ' '.join(collapsed_pos)
             examples = self.training_examples[key] if key in self.training_examples else []
-            examples.append(' '.join([element[0], element[1]]))
+            if self.pos_provided:
+                examples.append(' '.join([element[0], words_only]))
+            else:
+                examples.append(' '.join([element[0], element[1]]))
             self.training_examples[key] = examples
-        print "PPDB training data tagged and sorted"
+        sys.stderr.write("PPDB training data tagged and sorted\n")
         db_fh.close()
 
+    '''
+    for outputting examples to text
+    '''
     def print_examples(self):
         if self.selector == "all":
             counter = 0
@@ -103,7 +125,10 @@ class TrainingExtractor:
                 sys.exit()
             examples = " ||| ".join(self.training_examples[pair])
             print "%s ||| %s"%(pair, examples)
-            
+    
+    '''
+    function to put examples together in a tuple
+    '''
     def package_examples(examples, paraphrases, key):
         for paraphrase in paraphrases:
             elements = paraphrase.split()
@@ -137,14 +162,13 @@ class TrainingExtractor:
             return examples
 
 def main():
-    (opts, args) = getopt.getopt(sys.argv[1:], 'aA:nv')
+    (opts, args) = getopt.getopt(sys.argv[1:], 'aA:npv')
     selector = None
+    POS = False
     top_combiners = -1
     for opt in opts:
         if opt[0] == '-a': #adjective-noun
             selector = "adj"
-        elif opt[0] == '-d': #determiner
-            selector = "det"
         elif opt[0] == '-n': #noun-noun
             selector = "noun"
         elif opt[0] == '-v': #verb-noun
@@ -152,11 +176,13 @@ def main():
         elif opt[0] == '-A': #all
             selector = "all"
             top_combiners = int(opt[1])
+        elif opt[0] == '-p': 
+            POS = True
     if selector is None:
         sys.stderr.write("Error: need to provide one of the following flags to determine what word pairs to extract: -a (adjective-noun), -n (noun-noun), -v (verb-noun), or -A (all, with argument on number of POS combiners\n")
         sys.exit()
     dbloc = args[0]
-    extractor = TrainingExtractor(dbloc, selector, top_combiners)
+    extractor = TrainingExtractor(dbloc, selector, top_combiners, POS)
     extractor.extract_examples()
     extractor.print_examples()
 
