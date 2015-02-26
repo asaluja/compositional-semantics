@@ -64,7 +64,7 @@
 \maketitle
 \begin{abstract}
 Compositional vector space models of meaning promise new solutions to stubborn language understanding problems. 
-This paper makes two contributions toward this end: (i) it uses automatically-extracted paraphrase examples as a source of supervision for training compositional models (replacing previous work which relied on human-annotated examples) and (ii) develops a context-aware model for scoring phrasal compositionality. 
+This paper makes two contributions toward this end: (i) it uses automatically-extracted paraphrase examples as a source of supervision for training compositional models, replacing previous work which relied on manual annotations used for the same purpose, and (ii) develops a context-aware model for scoring phrasal compositionality. 
 	Experimental results indicate that these multiple sources of information can be used to learn partial semantic supervision that matches previous techniques in intrinsic evaluation tasks. 
 	Our approaches are also evaluated for their impact on a machine translation system where we show improvements in translation quality, demonstrating that compositionality in interpretation correlates with compositionality in translation. 
  \end{abstract}
@@ -74,32 +74,32 @@ This paper makes two contributions toward this end: (i) it uses automatically-ex
 Numerous lexical semantic properties are captured by representations encoding distributional properties of words, as has been demonstrated in a variety of tasks \cite{Turian2010,Turney2010,Mikolov2013b}.
 However, this distributional account of meaning does not scale to larger units like phrases and sentences \cite[\emph{inter alia}]{Sahlgren2006,Collobert2011},\footnote{There are simply far more distinct phrasal units whose representations have to be learned from the same amount of data.} motivating research into compositional models that \emph{combine} word representations to produce representations of the semantics of longer units \cite{Mitchell2010,Baroni2010,Socher2013}.  
 Previous work has learned these models using autoencoder formulations \cite{Socher2011} or limited human supervision \cite{Mitchell2010}.
-In contrast, we hypothesize that the equivalent knowledge can be obtained through monolingual paraphrases that have been extracted using word alignments and an intermediate language \cite{Ganitkevich2013}.
+In this work, we explore the hypothesis that the equivalent knowledge about how words compose can be obtained through monolingual paraphrases that have been extracted using word alignments and an intermediate language \cite{Ganitkevich2013}.
 Confirming this hypothesis would allow the rapid development of compositional models in a large number of languages. 
 
 As their name suggests, these models also impose the assumption that longer units like phrases are \textbf{compositional}, i.e., a phrase's meaning can be understood from the literal meaning of its parts. 
 However, countless examples that run contrary to the assumption exist, and handling these \textbf{non-compositional} phrases has been problematic and of long-standing interest in the community \cite{Lin1999,Sag2002}.
-(Non-) Compositionality detection as a problem is particularly relevant for downstream tasks like machine translation (MT) or information retrieval, where a literal interpretation of a non-compositional phrase could have comical (or disastrous) consequences. 
-Scoring this phenomenon can provide vital information to other language processing systems on whether a multiword unit should be treated semantically as a single entity or not, and we posit that this behavior is strongly dependent on the context in which the expression occurs. 
+(Non-) Compositionality detection as a problem is particularly relevant for downstream tasks like machine translation (MT) or information retrieval. 
+Scoring this phenomenon can provide vital information to other language processing systems on whether a multiword unit should be treated semantically as a single entity or not. We explore the hypothesis that contextual evidence can be used to determine whether a phrase is meant compositionally or not. \cjd{reworded, check}
 
 %Many of the compositional representation and scoring models are either overly parametrized (compositional operators are word-specific), learned from human-annotated corpora, or both. 
 %These characteristics make such approaches difficult to apply in large-scale tasks with infrequently-occurring words, which is why most previous evaluations for this problem have focused on tasks with limited vocabularies and specific phrasal relationships (e.g., verb-object phrase similarity tasks), or at most on sentiment prediction and paraphrase detection. 
 
-The goal of this work is to learn relatively accurate context-sensitive compositional models that are also directly applicable in real-world, noisy-data scenarios. 
+Rather than focusing purely on intrinsic clean-room evaluations, the goal of this work is to learn relatively accurate context-sensitive compositional models that are also directly applicable in real-world, noisy-data scenarios. 
 This objective necessitates certain design decisions, and we propose a robust, scalable framework that learns compositional functions and scores relative phrasal compositionality.  
 We make three contributions: first, a novel way to learn compositional functions for part-of-speech pairs that uses supervision from an automatically-extracted list of paraphrases (\S\ref{sec:ppdb}). 
 %Second, a new regularizer that incorporates linguistic notions of headedness while learning these functions in a linear regression setting (\S\ref{sec:concat}-\S\ref{sec:regularization}). 
 Second, a context-dependent scoring model that scores the relative compositionality of a phrase \cite{McCarthy2003} by computing the likelihood of its context given its paraphrase-learned representation (\S\ref{sec:context}). 
 And third, an evaluation of the impact of compositionality knowledge in an end-to-end MT setup.
 Our experiments (\S\ref{sec:experiments}) reveal that using supervision from automatically extracted paraphrases produces compositional functions with equivalent performance to previous approaches that have relied on hand-annotated training data. 
-Furthermore, compositionality features consistently improve the translations produced by an English--Spanish translation system.
+Furthermore, compositionality features consistently improve the translations produced by an English--Spanish translation system.\cjd{The forward references should be 2, 3, 4, etc., not 3.1, 4.2, etc.}
 
 \section{Parametric Composition Functions}
 \label{sec:learning}
 
-Our goal is to learn a function $\bF (\bX, \bY)$ that maps $N$-dimensional vector representations of phrase constituents $\bX, \bY \in \mathbb{R}^{N \times 1}$  to an $N$-dimensional vector representation of the phrase\footnote{We discuss handling phrases longer than 2 words in \S\ref{sec:longer-phrases}.}, i.e., the \emph{composed} representation.
+We formalize composition as a function $\bF (\bX, \bY)$ that maps $N$-dimensional vector representations of phrase constituents $\bX, \bY \in \mathbb{R}^{N \times 1}$  to an $N$-dimensional vector representation of the phrase\footnote{We discuss handling phrases longer than 2 words in \S\ref{sec:longer-phrases}.}, i.e., the \emph{composed} representation. 
 A phrase is defined as any contiguous sequence of words of length 2 or greater, and does not have to adhere to constituents in a phrase structure grammar. 
-This definition is in line with our MT application and ignores ``gappy'' phrases like many verb-object relations, as they are not treated as phrasal units in standard phrase-based MT \cite{Koehn2003}.  
+This definition is in line with our MT application and ignores ``gappy'' noncontiguous phrases but this pragmatic definition does exclude many verb-object relations \cite{Koehn2003}.  
 We assume the existence of word-level vector representations for every word in our vocabulary of size $V$.
 Compositionality is modeled as a bilinear map, and two classes of linear models with different levels of parametrization are proposed.  
 Unlike previous work \cite[\emph{inter alia}]{Baroni2010,Socher2013,Grefenstette2013} where the functions are  word-specific, our compositional functions operate on part-of-speech (POS) tag pairs, which facilitates learning by drastically reducing the number of parameters, and only requires a shallow syntactic parse of the input. 
